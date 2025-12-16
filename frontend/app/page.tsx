@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { TreePine, Users, Share2, Download, Sparkles, ArrowRight, Github, Mail, Code } from "lucide-react";
+import { TreePine, Users, Share2, Download, Sparkles, ArrowRight, Github, Mail, Code, Link2, Pencil, Eye, Languages } from "lucide-react";
 import { ContactForm } from "@/components/ContactForm";
 
 export default function LandingPage() {
@@ -107,25 +107,53 @@ export default function LandingPage() {
 
       {/* Features Section */}
       <section className="container mx-auto px-6 py-20">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-12">
+        <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">
           Everything You Need to Build Your Family Tree
         </h2>
+        <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
+          Powerful features designed to help you visualize, explore, and share your family history
+        </p>
         
-        <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
           <FeatureCard
             icon={<Users className="h-8 w-8" />}
             title="Easy to Use"
-            description="Intuitive drag-and-drop interface. Add family members with just a few clicks and watch your tree grow."
+            description="Intuitive drag-and-drop interface. Add family members, spouses, children, and parents with just a few clicks."
+          />
+          <FeatureCard
+            icon={<Sparkles className="h-8 w-8" />}
+            title="See It Alive"
+            description="Watch your family tree come to life with beautiful animations. Zoom, pan, and explore your heritage dynamically."
+          />
+          <FeatureCard
+            icon={<Link2 className="h-8 w-8" />}
+            title="Find the Link"
+            description="Discover how two family members are related. Click any two people to see their relationship in English and Tamil."
+          />
+          <FeatureCard
+            icon={<Eye className="h-8 w-8" />}
+            title="Multiple Views"
+            description="Switch between Standard, Fancy Tree, and animated views. Visualize your family connections in beautiful layouts."
+          />
+          <FeatureCard
+            icon={<Pencil className="h-8 w-8" />}
+            title="Rich Profiles"
+            description="Add photos, birth/death dates, occupations, and detailed notes. Record marriages with dates and locations."
+          />
+          <FeatureCard
+            icon={<Languages className="h-8 w-8" />}
+            title="Tamil Support"
+            description="Bilingual relationship display in English and Tamil (தமிழ்). Perfect for Tamil families preserving their heritage."
           />
           <FeatureCard
             icon={<Share2 className="h-8 w-8" />}
-            title="Multiple Views"
-            description="Switch between standard and fancy tree views. Visualize your family connections in beautiful layouts."
+            title="Focus & Isolate"
+            description="Double-click any person to focus on their direct lineage. See ancestors and descendants at a glance."
           />
           <FeatureCard
             icon={<Download className="h-8 w-8" />}
-            title="Export & Share"
-            description="Export your family tree as PNG or PDF. Share your family history with relatives near and far."
+            title="Import & Export"
+            description="Save your family tree as JSON. Import existing trees and continue building. Your data, your control."
           />
         </div>
       </section>
@@ -137,8 +165,8 @@ export default function LandingPage() {
             Ready to Start Your Family Tree?
           </h2>
           <p className="text-emerald-100 text-lg mb-8 max-w-2xl mx-auto">
-            Join thousands of families preserving their heritage. 
-            Start building your family tree today — it&apos;s free!
+            Visualize your heritage with animated trees, discover relationships in Tamil & English, 
+            and preserve your family history — all for free!
           </p>
           <Link href="/editor">
             <Button size="lg" variant="secondary" className="bg-white text-emerald-700 hover:bg-emerald-50 px-8 py-6 text-lg">

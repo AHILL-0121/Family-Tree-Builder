@@ -27,6 +27,7 @@
     "d3-selection": "^3.0.0",
     "d3-transition": "^3.0.1",
     "d3-zoom": "^3.0.0",
+    "family-chart": "^0.9.0",
     "file-saver": "^2.0.5",
     "lucide-react": "^0.378.0",
     "next": "14.2.3",

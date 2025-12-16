@@ -369,6 +369,18 @@ export function PersonForm({
       : "None";
   };
 
+  // Get children names for display
+  const getChildrenNames = () => {
+    if (!selectedPerson) return "None";
+    const children = people.filter(p => 
+      p.parentIds.includes(selectedPerson.id)
+    );
+    
+    return children.length > 0 
+      ? children.map(c => getFullName(c)).join(", ") 
+      : "None";
+  };
+
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
       {/* Profile Image at Top Center */}
@@ -394,22 +406,6 @@ export function PersonForm({
           <p className="mt-2 text-sm font-medium text-muted-foreground">
             {givenName} {surname}
           </p>
-        )}
-      </div>
-
-      <div className="flex items-center justify-between sticky top-0 bg-background py-2 z-10">
-        <h3 className="text-lg font-semibold text-primary">
-          {selectedPerson ? "Edit Person" : "Add Person"}
-        </h3>
-        {selectedPerson && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={onCancelEdit}
-          >
-            <X className="h-4 w-4" />
-          </Button>
         )}
       </div>
 
@@ -557,6 +553,10 @@ export function PersonForm({
                 <span className="text-muted-foreground">Siblings:</span>
                 <span className="font-medium">{getSiblingNames()}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Children:</span>
+                <span className="font-medium">{getChildrenNames()}</span>
+              </div>
             </div>
           </FormSection>
 
@@ -567,6 +567,7 @@ export function PersonForm({
               const availableSpouses = people.filter(
                 p => p.id !== selectedPerson?.id && 
                      p.id !== initialPerson?.id &&
+                     p.id !== marriage.spouseId &&
                      !marriages.some((m, i) => i !== index && m.spouseId === p.id)
               );
               

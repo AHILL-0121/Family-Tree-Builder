@@ -74,3 +74,38 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Family Chart Circular Styles */
+#donatsoSvgContainer svg {
+  width: 100% !important;
+  height: 100% !important;
+}
+
+#donatsoSvgContainer .card {
+  cursor: pointer;
+}
+
+#donatsoSvgContainer .card rect.card-bg {
+  rx: 50px !important;
+  ry: 50px !important;
+}
+
+#donatsoSvgContainer .card image {
+  clip-path: circle(35px at center);
+}
+
+#donatsoSvgContainer .card text {
+  font-weight: 600 !important;
+  font-size: 11px !important;
+}
+
+#donatsoSvgContainer .card .card-male rect.card-bg {
+  stroke: #3b82f6 !important;
+  stroke-width: 3px !important;
+}
+
+#donatsoSvgContainer .card .card-female rect.card-bg {
+  stroke: #ec4899 !important;
+  stroke-width: 3px !important;
+}
+

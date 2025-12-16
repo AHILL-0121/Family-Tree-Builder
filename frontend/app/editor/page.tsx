@@ -5,9 +5,11 @@ import { Person, FamilyTreeData, Position, getFullName, createEmptyPerson } from
 import { PersonForm } from "@/components/PersonForm";
 import { PersonList } from "@/components/PersonList";
 import { TreeCanvas } from "@/components/TreeCanvas";
+import { DonatsoChart } from "@/components/DonatsoChart";
+import { FindLinkView } from "@/components/FindLinkView";
 import { JsonControls } from "@/components/JsonControls";
 import { useToast } from "@/hooks/use-toast";
-import { TreePine, LayoutGrid, AlignHorizontalDistributeCenter, Home } from "lucide-react";
+import { TreePine, LayoutGrid, AlignHorizontalDistributeCenter, Home, Sparkles, Link2 } from "lucide-react";
 import { computeAutoAlignPositions } from "@/lib/tree-layout";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -30,7 +32,7 @@ export default function EditorPage() {
   const [selectedPerson, setSelectedPerson] = useState<Person | null>(null);
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [dialogPerson, setDialogPerson] = useState<Person | null>(null);
-  const [viewMode, setViewMode] = useState<"standard" | "fancy">("standard");
+  const [viewMode, setViewMode] = useState<"standard" | "fancy" | "alive" | "link">("standard");
 
   // Update an existing person
   const handleUpdatePerson = useCallback((updatedPerson: Person) => {
@@ -284,6 +286,10 @@ export default function EditorPage() {
                 people={people}
                 selectedPersonId={selectedPerson?.id || null}
                 onSelectPerson={(person) => setSelectedPerson(person)}
+                onEditPerson={(person) => {
+                  setDialogPerson(person);
+                  setDialogMode({ type: "edit", person });
+                }}
                 onDeletePerson={handleDeletePerson}
               />
             </section>
@@ -307,7 +313,7 @@ export default function EditorPage() {
               </h3>
               <div className="space-y-2">
                 {/* View Mode Toggle */}
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button
                     variant={viewMode === "standard" ? "default" : "outline"}
                     size="sm"
@@ -328,6 +334,27 @@ export default function EditorPage() {
                     <TreePine className="h-4 w-4 mr-1" />
                     Fancy
                   </Button>
+                  <Button
+                    variant={viewMode === "alive" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode("alive")}
+                    className="flex-1"
+                    title="See It Alive - Animated Chart"
+                  >
+                    <Sparkles className="h-4 w-4 mr-1" />
+                    See It Alive
+                  </Button>
+                  <Button
+                    variant={viewMode === "link" ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setViewMode("link")}
+                    className="flex-1"
+                    title="Find the Link - Discover relationships"
+                    disabled={people.length < 2}
+                  >
+                    <Link2 className="h-4 w-4 mr-1" />
+                    Find Link
+                  </Button>
                 </div>
                 
                 {/* Auto Align Button */}
@@ -335,7 +362,7 @@ export default function EditorPage() {
                   variant="outline"
                   size="sm"
                   onClick={handleAutoAlign}
-                  disabled={people.length === 0 || viewMode === "fancy"}
+                  disabled={people.length === 0 || viewMode !== "standard"}
                   className="w-full"
                   title="Auto-align generations (Standard view only)"
                 >
@@ -350,14 +377,27 @@ export default function EditorPage() {
         {/* Right Panel - Tree Canvas */}
         <main className="flex-1 p-4 overflow-hidden">
           <div className="w-full h-full rounded-lg border overflow-hidden shadow-inner">
-            <TreeCanvas
-              people={people}
-              selectedPersonId={selectedPerson?.id || null}
-              onSelectPerson={handleSelectPerson}
-              onUpdatePosition={handleUpdatePosition}
-              onDoubleClickNode={handleDoubleClickNode}
-              viewMode={viewMode}
-            />
+            {viewMode === "link" ? (
+              <FindLinkView
+                people={people}
+                onClose={() => setViewMode("standard")}
+              />
+            ) : viewMode === "alive" ? (
+              <DonatsoChart
+                people={people}
+                selectedPersonId={selectedPerson?.id || null}
+                onSelectPerson={handleSelectPerson}
+              />
+            ) : (
+              <TreeCanvas
+                people={people}
+                selectedPersonId={selectedPerson?.id || null}
+                onSelectPerson={handleSelectPerson}
+                onUpdatePosition={handleUpdatePosition}
+                onDoubleClickNode={handleDoubleClickNode}
+                viewMode={viewMode}
+              />
+            )}
           </div>
         </main>
       </div>

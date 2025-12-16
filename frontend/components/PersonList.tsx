@@ -11,6 +11,7 @@ interface PersonListProps {
   people: Person[];
   selectedPersonId: string | null;
   onSelectPerson: (person: Person) => void;
+  onEditPerson: (person: Person) => void;
   onDeletePerson: (id: string) => void;
 }
 
@@ -18,6 +19,7 @@ export function PersonList({
   people,
   selectedPersonId,
   onSelectPerson,
+  onEditPerson,
   onDeletePerson,
 }: PersonListProps) {
   if (people.length === 0) {
@@ -91,8 +93,9 @@ export function PersonList({
                   className="h-6 w-6"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onSelectPerson(person);
+                    onEditPerson(person);
                   }}
+                  title="Edit"
                 >
                   <Pencil className="h-3 w-3" />
                 </Button>
