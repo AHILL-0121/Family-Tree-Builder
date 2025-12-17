@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Person, FamilyTreeData, Position, getFullName, createEmptyPerson } from "@/lib/types";
 import { PersonForm } from "@/components/PersonForm";
 import { PersonList } from "@/components/PersonList";
@@ -33,6 +33,21 @@ export default function EditorPage() {
   const [dialogMode, setDialogMode] = useState<DialogMode>(null);
   const [dialogPerson, setDialogPerson] = useState<Person | null>(null);
   const [viewMode, setViewMode] = useState<"standard" | "fancy" | "alive" | "link">("standard");
+
+  // Warn user before leaving if they have unsaved data
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (people.length > 0) {
+        e.preventDefault();
+        // Modern browsers ignore custom messages, but this triggers the default warning
+        e.returnValue = "You have unsaved family tree data. Are you sure you want to leave?";
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [people.length]);
 
   // Update an existing person
   const handleUpdatePerson = useCallback((updatedPerson: Person) => {
