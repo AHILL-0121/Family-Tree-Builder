@@ -1,394 +1,224 @@
 import { Person } from "./types";
+import { compareDates } from "./dates";
+
+// How person B is related to person A ("B is A's …").
+//
+// 1. Find the SHORTEST chain of parent / child / spouse links (BFS, O(people + links)).
+// 2. Spell it as a kinship signature: F M P (father, mother, parent), S D C (son, daughter,
+//    child), H W E (husband, wife, spouse), B Z G (brother, sister, sibling — an "up then down"
+//    through a shared parent). Example: mother's brother's son = "MBS".
+// 3. Look the signature up. Tamil terms also depend on who is asking (speaker gender) and on
+//    relative age (elder/younger), so those are resolved from genders and birth years.
+//
+// Regional policy: the primary term is the common usage across central / Kongu Tamil Nadu,
+// matching tamilrelations.txt. Where families commonly differ, `note` names the alternatives.
+
+export interface RelationshipStep {
+  letter: string; // kinship letter reached at this step
+  id: string; // person reached
+}
 
 export interface RelationshipResult {
   english: string;
   tamil: string;
-  path: string[];
+  path: string[]; // person ids from A to B (inclusive)
+  /** Tamil form of address, when it differs from the descriptive term (e.g. cross cousins) */
+  address?: string;
+  /** Short explanation: regional variants, why a term was chosen, what data is missing */
+  note?: string;
+  /** Plain-English chain, e.g. "mother's brother's son" */
+  gloss: string;
+  /** Kinship signature, e.g. "MBS" */
+  signature: string;
+  steps: RelationshipStep[];
+  related: boolean;
 }
 
-// Find the relationship path between two people
-function findPath(
-  people: Person[],
-  fromId: string,
-  toId: string,
-  visited: Set<string> = new Set(),
-  path: string[] = []
-): string[] | null {
-  if (fromId === toId) return [...path, fromId];
-  if (visited.has(fromId)) return null;
+const WORD: Record<string, string> = {
+  F: "father", M: "mother", P: "parent", S: "son", D: "daughter", C: "child",
+  H: "husband", W: "wife", E: "spouse", B: "brother", Z: "sister", G: "sibling",
+};
 
-  visited.add(fromId);
-  const current = people.find(p => p.id === fromId);
-  if (!current) return null;
+const AGE_NOTE = "Add both birth years to tell elder from younger; Tamil uses a different word for each.";
+const PARALLEL =
+  "A parallel cousin (father's brother's or mother's sister's child). In Tamil kinship parallel cousins are brothers and sisters, and are addressed that way.";
+const CROSS =
+  "A cross cousin (mother's brother's or father's sister's child). Terms of address vary by region and community.";
 
-  const currentPath = [...path, fromId];
+type Edge = "up" | "down" | "spouse";
 
-  // Check parents
-  for (const parentId of current.parentIds) {
-    const result = findPath(people, parentId, toId, new Set(visited), currentPath);
-    if (result) return result;
-  }
-
-  // Check children
-  for (const childId of current.childIds) {
-    const result = findPath(people, childId, toId, new Set(visited), currentPath);
-    if (result) return result;
-  }
-
-  // Check spouses
-  for (const spouseId of current.spouseIds) {
-    const result = findPath(people, spouseId, toId, new Set(visited), currentPath);
-    if (result) return result;
-  }
-
-  return null;
+function buildIndex(people: Person[]) {
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const children = new Map<string, string[]>(people.map((p) => [p.id, []]));
+  for (const p of people) for (const pid of p.parentIds) children.get(pid)?.push(p.id);
+  return { byId, children };
 }
 
-// Calculate generations between two people (positive = descendant, negative = ancestor)
-function getGenerationDiff(people: Person[], fromId: string, toId: string, path: string[]): number {
-  let genDiff = 0;
-  
-  for (let i = 0; i < path.length - 1; i++) {
-    const current = people.find(p => p.id === path[i]);
-    const next = people.find(p => p.id === path[i + 1]);
-    if (!current || !next) continue;
-
-    if (current.parentIds.includes(next.id)) {
-      genDiff--; // Going up to parent
-    } else if (current.childIds.includes(next.id)) {
-      genDiff++; // Going down to child
-    }
-    // Spouse is same generation (genDiff += 0)
-  }
-  
-  return genDiff;
-}
-
-// Check if path goes through spouse
-function goesThoughSpouse(people: Person[], path: string[]): boolean {
-  for (let i = 0; i < path.length - 1; i++) {
-    const current = people.find(p => p.id === path[i]);
-    const next = people.find(p => p.id === path[i + 1]);
-    if (!current || !next) continue;
-    
-    if (current.spouseIds.includes(next.id)) {
-      return true;
+// Shortest chain of links from a to b; null when they are not connected.
+export function shortestPath(people: Person[], a: string, b: string): { from: string; to: string; edge: Edge }[] | null {
+  const { byId, children } = buildIndex(people);
+  if (!byId.has(a) || !byId.has(b)) return null;
+  const prev = new Map<string, { from: string; edge: Edge } | null>([[a, null]]);
+  const queue = [a];
+  while (queue.length) {
+    const cur = queue.shift()!;
+    if (cur === b) break;
+    const p = byId.get(cur)!;
+    const next: [string, Edge][] = [
+      ...p.parentIds.map((id): [string, Edge] => [id, "up"]),
+      ...(children.get(cur) ?? []).map((id): [string, Edge] => [id, "down"]),
+      ...p.spouseIds.map((id): [string, Edge] => [id, "spouse"]),
+    ];
+    for (const [id, edge] of next) {
+      if (byId.has(id) && !prev.has(id)) {
+        prev.set(id, { from: cur, edge });
+        queue.push(id);
+      }
     }
   }
-  return false;
+  if (!prev.has(b)) return null;
+  const steps: { from: string; to: string; edge: Edge }[] = [];
+  for (let cur = b; cur !== a; ) {
+    const link = prev.get(cur)!;
+    steps.unshift({ from: link.from, to: cur, edge: link.edge });
+    cur = link.from;
+  }
+  return steps;
 }
 
-// Determine detailed relationship
-export function findRelationship(
-  people: Person[],
-  person1: Person,
-  person2: Person
-): RelationshipResult {
+export function findRelationship(people: Person[], person1: Person, person2: Person): RelationshipResult {
+  const empty = { gloss: "", signature: "", steps: [] as RelationshipStep[] };
   if (person1.id === person2.id) {
-    return { english: "Same Person", tamil: "ஒரே நபர்", path: [person1.id] };
+    return { english: "Same person", tamil: "ஒரே நபர்", path: [person1.id], related: true, ...empty };
   }
-
-  const path = findPath(people, person1.id, person2.id);
-  if (!path) {
-    return { english: "No direct relationship found", tamil: "நேரடி உறவு இல்லை", path: [] };
+  const raw = shortestPath(people, person1.id, person2.id);
+  if (!raw) {
+    return { english: "Not connected in this tree", tamil: "இந்த மரத்தில் தொடர்பு இல்லை", path: [], related: false, ...empty };
   }
+  const byId = new Map(people.map((p) => [p.id, p]));
+  const gender = (id: string) => byId.get(id)?.gender ?? "";
+  const letter = (edge: Edge, id: string) => {
+    const g = gender(id);
+    if (edge === "up") return g === "male" ? "F" : g === "female" ? "M" : "P";
+    if (edge === "down") return g === "male" ? "S" : g === "female" ? "D" : "C";
+    return g === "male" ? "H" : g === "female" ? "W" : "E";
+  };
 
-  const person1Data = person1;
-  const person2Data = person2;
-  const person1Gender = person1Data.gender;
-  const person2Gender = person2Data.gender;
-
-  // Direct relationships
-  // Spouse
-  if (person1.spouseIds.includes(person2.id)) {
-    if (person2Gender === "male") {
-      return { english: "Husband", tamil: "கணவர்", path };
-    } else if (person2Gender === "female") {
-      return { english: "Wife", tamil: "மனைவி", path };
+  // Collapse "up to a parent, down to their other child" into a sibling step.
+  const steps: (RelationshipStep & { half?: boolean })[] = [];
+  for (let i = 0; i < raw.length; i++) {
+    const s = raw[i], n = raw[i + 1];
+    if (s.edge === "up" && n && n.edge === "down") {
+      const g = gender(n.to);
+      const a = byId.get(s.from)!, b = byId.get(n.to)!;
+      const shared = a.parentIds.filter((pid) => b.parentIds.includes(pid)).length;
+      const half = shared === 1 && (a.parentIds.length === 2 || b.parentIds.length === 2);
+      steps.push({ letter: g === "male" ? "B" : g === "female" ? "Z" : "G", id: n.to, half });
+      i++;
+    } else {
+      steps.push({ letter: letter(s.edge, s.to), id: s.to });
     }
-    return { english: "Spouse", tamil: "கணவன் / மனைவி", path };
   }
+  const signature = steps.map((s) => s.letter).join("");
+  const term = kinTerm(signature, steps, person1, person2, byId);
+  // "elder brother" → "elder half-brother" when only one parent is shared
+  if (steps.length === 1 && steps[0].half) term.english = term.english.replace(/(brother|sister|sibling)$/, "half-$1");
+  return {
+    ...term,
+    path: [person1.id, ...raw.map((s) => s.to)],
+    gloss: steps.map((s) => WORD[s.letter]).join("'s "),
+    signature,
+    steps,
+    related: true,
+  };
+}
 
-  // Parent
-  if (person1.parentIds.includes(person2.id)) {
-    if (person2Gender === "male") {
-      return { english: "Father", tamil: "அப்பா", path };
-    } else if (person2Gender === "female") {
-      return { english: "Mother", tamil: "அம்மா", path };
-    }
-    return { english: "Parent", tamil: "பெற்றோர்", path };
-  }
+type Term = { english: string; tamil: string; address?: string; note?: string };
 
-  // Child
-  if (person1.childIds.includes(person2.id)) {
-    if (person2Gender === "male") {
-      return { english: "Son", tamil: "மகன்", path };
-    } else if (person2Gender === "female") {
-      return { english: "Daughter", tamil: "மகள்", path };
-    }
-    return { english: "Child", tamil: "குழந்தை", path };
-  }
+function kinTerm(sig: string, steps: RelationshipStep[], A: Person, B: Person, byId: Map<string, Person>): Term {
+  const T = (english: string, tamil: string, extra: Partial<Term> = {}): Term => ({ english, tamil, ...extra });
+  // true: x is older than y · false: younger · null: unknown (a same-year birth needs both full dates)
+  const older = (x: string, y: string) => {
+    const c = compareDates(byId.get(x)?.birth?.date, byId.get(y)?.birth?.date);
+    return c == null || c === 0 ? null : c < 0;
+  };
+  const byAge = (x: string, y: string, elder: Term, younger: Term, unknown: Term) => {
+    const o = older(x, y);
+    return o === true ? elder : o === false ? younger : unknown;
+  };
+  const at = (i: number) => steps[i].id;
+  const speaker = A.gender;
 
-  // Sibling (share at least one parent)
-  const sharedParents = person1.parentIds.filter(pid => person2.parentIds.includes(pid));
-  if (sharedParents.length > 0) {
-    if (person2Gender === "male") {
-      return { english: "Brother", tamil: "சகோதரன்", path };
-    } else if (person2Gender === "female") {
-      return { english: "Sister", tamil: "சகோதரி", path };
-    }
-    return { english: "Sibling", tamil: "உடன்பிறந்தவர்", path };
-  }
-
-  // Grandparent (parent's parent)
-  for (const parentId of person1.parentIds) {
-    const parent = people.find(p => p.id === parentId);
-    if (parent && parent.parentIds.includes(person2.id)) {
-      if (person2Gender === "male") {
-        return { english: "Grandfather", tamil: "தாத்தா", path };
-      } else if (person2Gender === "female") {
-        return { english: "Grandmother", tamil: "பாட்டி", path };
+  switch (sig) {
+    case "F": return T("father", "அப்பா");
+    case "M": return T("mother", "அம்மா");
+    case "P": return T("parent", "பெற்றோர்");
+    case "S": return T("son", "மகன்");
+    case "D": return T("daughter", "மகள்");
+    case "C": return T("child", "குழந்தை");
+    case "H": return T("husband", "கணவர்");
+    case "W": return T("wife", "மனைவி");
+    case "E": return T("spouse", "வாழ்க்கைத் துணை");
+    case "B": return byAge(B.id, A.id, T("elder brother", "அண்ணன்"), T("younger brother", "தம்பி"), T("brother", "அண்ணன் / தம்பி", { note: AGE_NOTE }));
+    case "Z": return byAge(B.id, A.id, T("elder sister", "அக்கா"), T("younger sister", "தங்கை"), T("sister", "அக்கா / தங்கை", { note: AGE_NOTE }));
+    case "G": return T("sibling", "உடன்பிறப்பு");
+    case "FF": return T("paternal grandfather", "தாத்தா");
+    case "MF": return T("maternal grandfather", "தாத்தா");
+    case "FM": return T("paternal grandmother", "பாட்டி", { note: "Also அப்பத்தா in some regions." });
+    case "MM": return T("maternal grandmother", "பாட்டி", { note: "Also அம்மாயி / அம்மம்மா in some regions." });
+    case "SS": case "DS": return T("grandson", "பேரன்");
+    case "SD": case "DD": return T("granddaughter", "பேத்தி");
+    case "FB": return byAge(at(1), at(0), T("paternal uncle", "பெரியப்பா", { note: "Father's elder brother." }), T("paternal uncle", "சித்தப்பா", { note: "Father's younger brother." }), T("paternal uncle", "பெரியப்பா / சித்தப்பா", { note: AGE_NOTE }));
+    case "MZ": return byAge(at(1), at(0), T("maternal aunt", "பெரியம்மா", { note: "Mother's elder sister." }), T("maternal aunt", "சித்தி", { note: "Mother's younger sister." }), T("maternal aunt", "பெரியம்மா / சித்தி", { note: AGE_NOTE }));
+    case "MB": return T("maternal uncle", "மாமா", { note: "Mother's brother, the தாய் மாமன், who has a special role at weddings and ceremonies." });
+    case "FZ": return T("paternal aunt", "அத்தை");
+    // By marriage: the term follows the blood uncle/aunt in the middle (audit L-01)
+    case "FBW": return byAge(at(1), at(0), T("aunt by marriage", "பெரியம்மா"), T("aunt by marriage", "சித்தி"), T("aunt by marriage", "பெரியம்மா / சித்தி", { note: AGE_NOTE }));
+    case "MZH": return byAge(at(1), at(0), T("uncle by marriage", "பெரியப்பா"), T("uncle by marriage", "சித்தப்பா"), T("uncle by marriage", "பெரியப்பா / சித்தப்பா", { note: AGE_NOTE }));
+    case "FZH": return T("uncle by marriage", "மாமா");
+    case "MBW": return T("aunt by marriage", "அத்தை", { address: "மாமி", note: "Mother's brother's wife; called மாமி in many families." });
+    // Cousins: parallel vs cross (audit L-02), elder vs younger (L-03)
+    case "FBS": case "MZS": return byAge(B.id, A.id, T("cousin", "அண்ணன்", { note: PARALLEL }), T("cousin", "தம்பி", { note: PARALLEL }), T("cousin", "அண்ணன் / தம்பி", { note: `${PARALLEL} ${AGE_NOTE}` }));
+    case "FBD": case "MZD": return byAge(B.id, A.id, T("cousin", "அக்கா", { note: PARALLEL }), T("cousin", "தங்கை", { note: PARALLEL }), T("cousin", "அக்கா / தங்கை", { note: `${PARALLEL} ${AGE_NOTE}` }));
+    case "MBS": case "FZS": return T("cousin", sig[0] === "M" ? "மாமன் மகன்" : "அத்தை மகன்", { address: byAge(B.id, A.id, T("", "அத்தான்"), T("", "மச்சான்"), T("", "அத்தான் / மச்சான்")).tamil, note: CROSS });
+    case "MBD": case "FZD": return T("cousin", sig[0] === "M" ? "மாமன் மகள்" : "அத்தை மகள்", { address: speaker === "male" ? "முறைப்பெண்" : byAge(B.id, A.id, T("", "அண்ணி"), T("", "மச்சினி"), T("", "அண்ணி / மச்சினி")).tamil, note: CROSS });
+    case "BS": case "ZS": case "BD": case "ZD": {
+      const siblingGender = sig[0] === "B" ? "male" : "female", boy = sig[1] === "S";
+      const english = boy ? "nephew" : "niece";
+      if (speaker !== "male" && speaker !== "female") {
+        return T(english, boy ? "மருமகன் / மகன்" : "மருமகள் / மகள்", { note: "The Tamil term depends on whether the speaker and the sibling are the same sex. Set the speaker's gender." });
       }
-      return { english: "Grandparent", tamil: "பாட்டி/தாத்தா", path };
+      return speaker === siblingGender
+        ? T(english, boy ? "மகன்" : "மகள்", { note: "A same-sex sibling's child is traditionally treated as one's own child." })
+        : T(english, boy ? "மருமகன்" : "மருமகள்");
     }
+    // In-laws: speaker gender matters (audit L-04)
+    case "HF": case "WF": return T("father-in-law", "மாமனார்");
+    case "HM": case "WM": return T("mother-in-law", "மாமியார்");
+    case "SW": return T("daughter-in-law", "மருமகள்");
+    case "DH": return T("son-in-law", "மருமகன்");
+    case "WB": return T("brother-in-law", "மச்சான்", { note: "Wife's brother; the formal word is மைத்துனர்." });
+    case "WZ": return byAge(at(1), at(0), T("sister-in-law", "அண்ணி", { note: "Wife's elder sister." }), T("sister-in-law", "கொழுந்தியாள்", { note: "Wife's younger sister." }), T("sister-in-law", "அண்ணி / கொழுந்தியாள்", { note: AGE_NOTE }));
+    case "HB": return byAge(at(1), at(0), T("brother-in-law", "மச்சான்", { note: "Husband's elder brother; some families say பெரிய மாமா." }), T("brother-in-law", "கொழுந்தன்", { note: "Husband's younger brother." }), T("brother-in-law", "மச்சான் / கொழுந்தன்", { note: AGE_NOTE }));
+    case "HZ": return T("sister-in-law", "நாத்தனார்");
+    case "BW": return byAge(at(0), A.id, T("sister-in-law", "அண்ணி"), T("sister-in-law", "தம்பி மனைவி", { note: "Usually addressed by name." }), T("sister-in-law", "அண்ணி", { note: AGE_NOTE }));
+    case "ZH": return byAge(at(0), A.id, T("brother-in-law", "அத்தான்", { note: "Elder sister's husband; also மாமா." }), T("brother-in-law", "மச்சான்", { note: "Younger sister's husband; also மாப்பிள்ளை." }), T("brother-in-law", "அத்தான் / மச்சான்", { note: AGE_NOTE }));
+    case "WZH": return T("co-brother", "சகலை");
+    case "HBW": return T("co-sister", "ஓரகத்தி");
+    case "SWF": case "DHF": case "SWM": case "DHM": return T("child's parent-in-law", "சம்பந்தி");
   }
+  if (/^[FMP]{3}$/.test(sig)) return T(sig[2] === "F" ? "great-grandfather" : sig[2] === "M" ? "great-grandmother" : "great-grandparent", sig[2] === "M" ? "கொள்ளுப் பாட்டி" : "கொள்ளுத் தாத்தா");
+  if (/^[SDC]{3}$/.test(sig)) return T(sig[2] === "D" ? "great-granddaughter" : sig[2] === "S" ? "great-grandson" : "great-grandchild", sig[2] === "D" ? "கொள்ளுப்பேத்தி" : "கொள்ளுப்பேரன்");
+  if (/^[FMP]+$/.test(sig)) return T(`ancestor, ${sig.length} generations up`, `மூதாதையர் · ${sig.length} தலைமுறை`);
+  if (/^[SDC]+$/.test(sig)) return T(`descendant, ${sig.length} generations down`, `வழித்தோன்றல் · ${sig.length} தலைமுறை`);
+  const fallbackNote = "There's no single word for this one; the chain below shows how you're connected.";
+  if (/[HWE]/.test(sig)) return T("relative by marriage", "திருமண உறவு", { note: fallbackNote });
+  return T("blood relative", "இரத்த உறவு", { note: fallbackNote });
+}
 
-  // Grandchild (child's child)
-  for (const childId of person1.childIds) {
-    const child = people.find(p => p.id === childId);
-    if (child && child.childIds.includes(person2.id)) {
-      if (person2Gender === "male") {
-        return { english: "Grandson", tamil: "பேரன்", path };
-      } else if (person2Gender === "female") {
-        return { english: "Granddaughter", tamil: "பேத்தி", path };
-      }
-      return { english: "Grandchild", tamil: "பேரக்குழந்தை", path };
-    }
-  }
-
-  // Great-grandparent
-  for (const parentId of person1.parentIds) {
-    const parent = people.find(p => p.id === parentId);
-    if (!parent) continue;
-    for (const gpId of parent.parentIds) {
-      const gp = people.find(p => p.id === gpId);
-      if (gp && gp.parentIds.includes(person2.id)) {
-        if (person2Gender === "male") {
-          return { english: "Great Grandfather", tamil: "கொள்ளுத் தாத்தா", path };
-        } else if (person2Gender === "female") {
-          return { english: "Great Grandmother", tamil: "கொள்ளுப் பாட்டி", path };
-        }
-        return { english: "Great Grandparent", tamil: "கொள்ளுத் தாத்தா/பாட்டி", path };
-      }
-    }
-  }
-
-  // Great-grandchild
-  for (const childId of person1.childIds) {
-    const child = people.find(p => p.id === childId);
-    if (!child) continue;
-    for (const gcId of child.childIds) {
-      const gc = people.find(p => p.id === gcId);
-      if (gc && gc.childIds.includes(person2.id)) {
-        if (person2Gender === "male") {
-          return { english: "Great Grandson", tamil: "கொள்ளுப்பேரன்", path };
-        } else if (person2Gender === "female") {
-          return { english: "Great Granddaughter", tamil: "கொள்ளுப்பேத்தி", path };
-        }
-        return { english: "Great Grandchild", tamil: "கொள்ளுப்பேரக்குழந்தை", path };
-      }
-    }
-  }
-
-  // Uncle/Aunt (parent's sibling)
-  for (const parentId of person1.parentIds) {
-    const parent = people.find(p => p.id === parentId);
-    if (!parent) continue;
-    
-    // Check if person2 is a sibling of the parent
-    const parentSiblings = people.filter(p => 
-      p.id !== parentId &&
-      p.parentIds.some(pid => parent.parentIds.includes(pid))
-    );
-    
-    if (parentSiblings.some(s => s.id === person2.id)) {
-      // Determine maternal or paternal
-      const parentGender = parent.gender;
-      
-      if (person2Gender === "male") {
-        if (parentGender === "female") {
-          return { english: "Maternal Uncle", tamil: "மாமா (தாய் மாமா)", path };
-        } else {
-          return { english: "Paternal Uncle", tamil: "சித்தப்பா / பெரியப்பா", path };
-        }
-      } else if (person2Gender === "female") {
-        if (parentGender === "female") {
-          return { english: "Maternal Aunt", tamil: "சித்தி / பெரியம்மா", path };
-        } else {
-          return { english: "Paternal Aunt", tamil: "அத்தை", path };
-        }
-      }
-      return { english: "Uncle/Aunt", tamil: "மாமா/அத்தை", path };
-    }
-    
-    // Check if person2 is spouse of parent's sibling
-    for (const sibling of parentSiblings) {
-      if (sibling.spouseIds.includes(person2.id)) {
-        const parentGender = parent.gender;
-        if (person2Gender === "male") {
-          if (parentGender === "female") {
-            return { english: "Uncle (by marriage)", tamil: "மாமா", path };
-          }
-          return { english: "Uncle (by marriage)", tamil: "சித்தப்பா / பெரியப்பா", path };
-        } else {
-          if (parentGender === "male") {
-            return { english: "Aunt (by marriage)", tamil: "மாமி", path };
-          }
-          return { english: "Aunt (by marriage)", tamil: "சித்தி / பெரியம்மா", path };
-        }
-      }
-    }
-  }
-
-  // Nephew/Niece (sibling's child)
-  const siblings = people.filter(p => 
-    p.id !== person1.id &&
-    p.parentIds.some(pid => person1.parentIds.includes(pid))
-  );
-  
-  for (const sibling of siblings) {
-    if (sibling.childIds.includes(person2.id)) {
-      if (person2Gender === "male") {
-        return { english: "Nephew", tamil: "மருமகன் (சகோதரன்/சகோதரியின் மகன்)", path };
-      } else if (person2Gender === "female") {
-        return { english: "Niece", tamil: "மருமகள் (சகோதரன்/சகோதரியின் மகள்)", path };
-      }
-      return { english: "Nephew/Niece", tamil: "மருமகன்/மருமகள்", path };
-    }
-  }
-
-  // Cousin (parent's sibling's child)
-  for (const parentId of person1.parentIds) {
-    const parent = people.find(p => p.id === parentId);
-    if (!parent) continue;
-    
-    const parentSiblings = people.filter(p => 
-      p.id !== parentId &&
-      p.parentIds.some(pid => parent.parentIds.includes(pid))
-    );
-    
-    for (const uncle of parentSiblings) {
-      if (uncle.childIds.includes(person2.id)) {
-        if (person2Gender === "male") {
-          return { english: "Cousin Brother", tamil: "மாமா/அத்தை மகன் (உறவு சகோதரன்)", path };
-        } else if (person2Gender === "female") {
-          return { english: "Cousin Sister", tamil: "மாமா/அத்தை மகள் (உறவு சகோதரி)", path };
-        }
-        return { english: "Cousin", tamil: "உறவினர்", path };
-      }
-    }
-  }
-
-  // In-laws
-  // Father-in-law / Mother-in-law (spouse's parent)
-  for (const spouseId of person1.spouseIds) {
-    const spouse = people.find(p => p.id === spouseId);
-    if (spouse && spouse.parentIds.includes(person2.id)) {
-      if (person2Gender === "male") {
-        return { english: "Father-in-law", tamil: "மாமனார்", path };
-      } else if (person2Gender === "female") {
-        return { english: "Mother-in-law", tamil: "மாமியார்", path };
-      }
-      return { english: "Parent-in-law", tamil: "மாமனார்/மாமியார்", path };
-    }
-  }
-
-  // Son-in-law / Daughter-in-law (child's spouse)
-  for (const childId of person1.childIds) {
-    const child = people.find(p => p.id === childId);
-    if (child && child.spouseIds.includes(person2.id)) {
-      if (person2Gender === "male") {
-        return { english: "Son-in-law", tamil: "மருமகன்", path };
-      } else if (person2Gender === "female") {
-        return { english: "Daughter-in-law", tamil: "மருமகள்", path };
-      }
-      return { english: "Child-in-law", tamil: "மருமகன்/மருமகள்", path };
-    }
-  }
-
-  // Brother-in-law / Sister-in-law (spouse's sibling)
-  for (const spouseId of person1.spouseIds) {
-    const spouse = people.find(p => p.id === spouseId);
-    if (!spouse) continue;
-    
-    const spouseSiblings = people.filter(p => 
-      p.id !== spouseId &&
-      p.parentIds.some(pid => spouse.parentIds.includes(pid))
-    );
-    
-    if (spouseSiblings.some(s => s.id === person2.id)) {
-      if (person2Gender === "male") {
-        return { english: "Brother-in-law", tamil: "மைத்துனர் / மச்சான்", path };
-      } else if (person2Gender === "female") {
-        return { english: "Sister-in-law", tamil: "நாத்தனார் / மைத்துனி", path };
-      }
-      return { english: "Sibling-in-law", tamil: "மைத்துனர்/நாத்தனார்", path };
-    }
-  }
-
-  // Brother-in-law / Sister-in-law (sibling's spouse)
-  for (const sibling of siblings) {
-    if (sibling.spouseIds.includes(person2.id)) {
-      if (person1Gender === "male") {
-        // I'm male
-        if (person2Gender === "male") {
-          return { english: "Brother-in-law", tamil: "மச்சான் / அத்தான்", path };
-        } else {
-          return { english: "Sister-in-law", tamil: "அண்ணி / மைத்துனி", path };
-        }
-      } else {
-        // I'm female
-        if (person2Gender === "male") {
-          return { english: "Brother-in-law", tamil: "அத்தான் / மச்சான்", path };
-        } else {
-          return { english: "Sister-in-law", tamil: "அண்ணி", path };
-        }
-      }
-    }
-  }
-
-  // Co-brother / Co-sister (spouse's sibling's spouse)
-  for (const spouseId of person1.spouseIds) {
-    const spouse = people.find(p => p.id === spouseId);
-    if (!spouse) continue;
-    
-    const spouseSiblings = people.filter(p => 
-      p.id !== spouseId &&
-      p.parentIds.some(pid => spouse.parentIds.includes(pid))
-    );
-    
-    for (const spouseSibling of spouseSiblings) {
-      if (spouseSibling.spouseIds.includes(person2.id)) {
-        if (person2Gender === "male") {
-          return { english: "Co-Brother", tamil: "சகலை", path };
-        } else if (person2Gender === "female") {
-          return { english: "Co-Sister", tamil: "ஓரகத்தி", path };
-        }
-      }
-    }
-  }
-
-  // Generic fallback based on generation difference
-  const genDiff = getGenerationDiff(people, person1.id, person2.id, path);
-  const throughSpouse = goesThoughSpouse(people, path);
-
-  if (genDiff < -2) {
-    return { english: `Ancestor (${Math.abs(genDiff)} generations)`, tamil: `மூதாதையர் (${Math.abs(genDiff)} தலைமுறை)`, path };
-  } else if (genDiff > 2) {
-    return { english: `Descendant (${genDiff} generations)`, tamil: `வழித்தோன்றல் (${genDiff} தலைமுறை)`, path };
-  } else if (throughSpouse) {
-    return { english: "Relative by marriage", tamil: "திருமண உறவினர்", path };
-  }
-
-  return { english: "Relative", tamil: "உறவினர்", path };
+// "Vishal is Ashwin's cousin" — B relative to A, with a clear no-link case (audit R-03).
+export function relationshipSentence(result: RelationshipResult, nameA: string, nameB: string): string {
+  if (!result.related) return `${nameB} and ${nameA} aren't connected in this tree yet.`;
+  if (result.path.length === 1) return `${nameA} is the same person.`;
+  return `${nameB} is ${nameA}'s ${result.english}${result.gloss && result.gloss !== result.english ? ` (${result.gloss})` : ""}.`;
 }

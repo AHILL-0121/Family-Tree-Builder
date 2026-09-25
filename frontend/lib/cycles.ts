@@ -1,86 +1,61 @@
 import { Person } from "./types";
 
-// Detect if adding a parent would create a cycle
+// Would making `potentialParentId` a parent of `childId` create a cycle?
+// It would if the child is the potential parent, or is already one of their ancestors.
 export function wouldCreateCycle(
   people: Person[],
   childId: string,
   potentialParentId: string
 ): boolean {
-  // A person cannot be their own parent
   if (childId === potentialParentId) return true;
-  
+
   const peopleMap = new Map(people.map(p => [p.id, p]));
-  
-  // Check if potentialParent is a descendant of child
-  // If so, making potentialParent a parent of child would create a cycle
   const visited = new Set<string>();
-  const queue = [childId];
-  
-  // Build children map
-  const childrenMap = new Map<string, string[]>();
-  people.forEach(person => {
-    childrenMap.set(person.id, []);
-  });
-  people.forEach(person => {
-    person.parentIds.forEach(parentId => {
-      const children = childrenMap.get(parentId);
-      if (children) {
-        children.push(person.id);
-      }
-    });
-  });
-  
-  // BFS to find all descendants of child
-  while (queue.length > 0) {
-    const currentId = queue.shift()!;
+  const stack = [potentialParentId];
+
+  while (stack.length > 0) {
+    const currentId = stack.pop()!;
+    if (currentId === childId) return true;
     if (visited.has(currentId)) continue;
     visited.add(currentId);
-    
-    const children = childrenMap.get(currentId) || [];
-    children.forEach(descendantId => {
-      if (descendantId === potentialParentId) {
-        return true; // Found cycle
-      }
-      queue.push(descendantId);
-    });
+    peopleMap.get(currentId)?.parentIds.forEach(pid => stack.push(pid));
   }
-  
-  // Also check if child is an ancestor of potentialParent
-  const ancestorVisited = new Set<string>();
-  const ancestorQueue = [potentialParentId];
-  
-  while (ancestorQueue.length > 0) {
-    const currentId = ancestorQueue.shift()!;
-    if (ancestorVisited.has(currentId)) continue;
-    ancestorVisited.add(currentId);
-    
-    if (currentId === childId) {
-      return true; // Child is an ancestor of potential parent - would create cycle
-    }
-    
-    const person = peopleMap.get(currentId);
-    if (person) {
-      person.parentIds.forEach(parentId => {
-        ancestorQueue.push(parentId);
-      });
-    }
-  }
-  
+
   return false;
+}
+
+// Find a parent-child cycle anywhere in the tree (three-colour DFS over parent links).
+export function findCycle(people: Person[]): string[] | null {
+  const peopleMap = new Map(people.map(p => [p.id, p]));
+  const state = new Map<string, 1 | 2>(); // 1 = on the current path, 2 = done
+  const path: string[] = [];
+
+  function visit(id: string): string[] | null {
+    if (state.get(id) === 2) return null;
+    if (state.get(id) === 1) return path.slice(path.indexOf(id)).concat(id);
+    state.set(id, 1);
+    path.push(id);
+    for (const pid of peopleMap.get(id)?.parentIds ?? []) {
+      if (!peopleMap.has(pid)) continue;
+      const found = visit(pid);
+      if (found) return found;
+    }
+    path.pop();
+    state.set(id, 2);
+    return null;
+  }
+
+  for (const p of people) {
+    const found = visit(p.id);
+    if (found) return found;
+  }
+  return null;
 }
 
 // Validate the entire family tree for cycles
 export function validateTree(people: Person[]): { valid: boolean; error?: string } {
-  for (const person of people) {
-    for (const parentId of person.parentIds) {
-      if (wouldCreateCycle(people.filter(p => p.id !== person.id || !p.parentIds.includes(parentId)), person.id, parentId)) {
-        return {
-          valid: false,
-          error: `Cycle detected: ${person.name} cannot have this parent relationship`
-        };
-      }
-    }
-  }
-  
-  return { valid: true };
+  const cycle = findCycle(people);
+  if (!cycle) return { valid: true };
+  const names = cycle.map(id => people.find(p => p.id === id)?.name || id);
+  return { valid: false, error: `Cycle detected: ${names.join(" → ")}` };
 }

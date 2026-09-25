@@ -8,3 +8,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# Planning notes (local only)
+/plan/

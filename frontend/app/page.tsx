@@ -1,308 +1,115 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { TreePine, Users, Share2, Download, Sparkles, ArrowRight, Github, Mail, Code, Link2, Pencil, Eye, Languages } from "lucide-react";
+import { RelateDemo } from "@/components/landing/RelateDemo";
 import { ContactForm } from "@/components/ContactForm";
+import { ForceLightTheme } from "@/components/landing/ForceLightTheme";
+import { buildPosterSVG, mainRoot } from "@/lib/poster";
+import { samplePeople, SAMPLE_NAME } from "@/lib/sample";
 
-export default function LandingPage() {
+function BrandMark() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-emerald-50 via-amber-50 to-white">
-      {/* Navigation */}
-      <nav className="container mx-auto px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <TreePine className="h-8 w-8 text-emerald-600" />
-            <span className="text-xl font-bold text-emerald-800">Family Tree Generator</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <a
-              href="https://github.com/AHILL-0121"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-gray-600 hover:text-emerald-600 transition-colors"
-              title="GitHub"
-            >
-              <Github className="h-5 w-5" />
-            </a>
-            <a
-              href="#contact"
-              className="text-gray-600 hover:text-emerald-600 transition-colors font-medium"
-            >
-              Contact
-            </a>
-            <Link href="/editor">
-              <Button variant="outline" className="border-emerald-600 text-emerald-700 hover:bg-emerald-50">
-                Open Editor
-              </Button>
-            </Link>
-          </div>
-        </div>
-      </nav>
-
-      {/* Hero Section */}
-      <section className="container mx-auto px-6 py-20 text-center">
-        <div className="max-w-4xl mx-auto">
-          <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-800 px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Sparkles className="h-4 w-4" />
-            Free & Easy to Use
-          </div>
-          
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Create Beautiful
-            <span className="text-emerald-600"> Family Trees</span>
-            <br />
-            in Minutes
-          </h1>
-          
-          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto">
-            Build, visualize, and share your family history with our intuitive family tree generator. 
-            Perfect for genealogy enthusiasts and families preserving their heritage.
-          </p>
-          
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link href="/editor">
-              <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700 text-white px-8 py-6 text-lg">
-                Open Editor
-                <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
-          </div>
-        </div>
-
-        {/* Preview Image/Mockup */}
-        <div className="mt-16 max-w-5xl mx-auto">
-          <div className="bg-white rounded-2xl shadow-2xl border overflow-hidden">
-            <div className="bg-gray-100 px-4 py-3 flex items-center gap-2 border-b">
-              <div className="w-3 h-3 rounded-full bg-red-400"></div>
-              <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
-              <div className="w-3 h-3 rounded-full bg-green-400"></div>
-              <span className="ml-4 text-sm text-gray-500">Family Tree Editor</span>
-            </div>
-            <div className="p-8 bg-gradient-to-br from-emerald-50 to-amber-50 min-h-[300px] flex items-center justify-center">
-              <div className="flex flex-col items-center gap-4">
-                {/* Simple tree visualization */}
-                <div className="flex flex-col items-center">
-                  <div className="w-20 h-20 rounded-full bg-emerald-200 border-4 border-emerald-400 flex items-center justify-center">
-                    <Users className="h-8 w-8 text-emerald-700" />
-                  </div>
-                  <div className="w-1 h-8 bg-emerald-400"></div>
-                  <div className="flex gap-16">
-                    <div className="flex flex-col items-center">
-                      <div className="w-16 h-16 rounded-full bg-amber-200 border-4 border-amber-400 flex items-center justify-center">
-                        <Users className="h-6 w-6 text-amber-700" />
-                      </div>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div className="w-16 h-16 rounded-full bg-amber-200 border-4 border-amber-400 flex items-center justify-center">
-                        <Users className="h-6 w-6 text-amber-700" />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-gray-500 text-sm mt-4">Your family tree awaits...</p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features Section */}
-      <section className="container mx-auto px-6 py-20">
-        <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">
-          Everything You Need to Build Your Family Tree
-        </h2>
-        <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-          Powerful features designed to help you visualize, explore, and share your family history
-        </p>
-        
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
-          <FeatureCard
-            icon={<Users className="h-8 w-8" />}
-            title="Easy to Use"
-            description="Intuitive drag-and-drop interface. Add family members, spouses, children, and parents with just a few clicks."
-          />
-          <FeatureCard
-            icon={<Sparkles className="h-8 w-8" />}
-            title="See It Alive"
-            description="Watch your family tree come to life with beautiful animations. Zoom, pan, and explore your heritage dynamically."
-          />
-          <FeatureCard
-            icon={<Link2 className="h-8 w-8" />}
-            title="Find the Link"
-            description="Discover how two family members are related. Click any two people to see their relationship in English and Tamil."
-          />
-          <FeatureCard
-            icon={<Eye className="h-8 w-8" />}
-            title="Multiple Views"
-            description="Switch between Standard, Fancy Tree, and animated views. Visualize your family connections in beautiful layouts."
-          />
-          <FeatureCard
-            icon={<Pencil className="h-8 w-8" />}
-            title="Rich Profiles"
-            description="Add photos, birth/death dates, occupations, and detailed notes. Record marriages with dates and locations."
-          />
-          <FeatureCard
-            icon={<Languages className="h-8 w-8" />}
-            title="Tamil Support"
-            description="Bilingual relationship display in English and Tamil (தமிழ்). Perfect for Tamil families preserving their heritage."
-          />
-          <FeatureCard
-            icon={<Share2 className="h-8 w-8" />}
-            title="Focus & Isolate"
-            description="Double-click any person to focus on their direct lineage. See ancestors and descendants at a glance."
-          />
-          <FeatureCard
-            icon={<Download className="h-8 w-8" />}
-            title="Import & Export"
-            description="Save your family tree as JSON. Import existing trees and continue building. Your data, your control."
-          />
-        </div>
-      </section>
-
-      {/* CTA Section */}
-      <section className="container mx-auto px-6 py-20">
-        <div className="bg-emerald-600 rounded-3xl p-12 text-center text-white max-w-4xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">
-            Ready to Start Your Family Tree?
-          </h2>
-          <p className="text-emerald-100 text-lg mb-8 max-w-2xl mx-auto">
-            Visualize your heritage with animated trees, discover relationships in Tamil & English, 
-            and preserve your family history — all for free!
-          </p>
-          <Link href="/editor">
-            <Button size="lg" variant="secondary" className="bg-white text-emerald-700 hover:bg-emerald-50 px-8 py-6 text-lg">
-              Open Editor
-              <ArrowRight className="ml-2 h-5 w-5" />
-            </Button>
-          </Link>
-        </div>
-      </section>
-
-      {/* Developer & Contact Section */}
-      <section id="contact" className="container mx-auto px-6 py-20">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center text-gray-900 mb-4">
-            Get In Touch
-          </h2>
-          <p className="text-center text-gray-600 mb-12 max-w-2xl mx-auto">
-            Have questions, feedback, or just want to say hi? Feel free to reach out!
-          </p>
-          
-          <div className="grid md:grid-cols-2 gap-12">
-            {/* Developer Info */}
-            <div className="bg-white rounded-xl p-8 shadow-lg border">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <Code className="h-5 w-5 text-emerald-600" />
-                Developer
-              </h3>
-              
-              <div className="space-y-6">
-                <div className="flex items-center gap-4">
-                  <div className="w-16 h-16 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-full flex items-center justify-center">
-                    <span className="text-2xl font-bold text-white">A</span>
-                  </div>
-                  <div>
-                    <h4 className="font-semibold text-gray-900">AHILL-0121</h4>
-                    <p className="text-gray-500 text-sm">Passionate Coder</p>
-                  </div>
-                </div>
-                
-                <p className="text-gray-600">
-                  Passionate about building tools that help people connect with their roots 
-                  and preserve family memories for generations to come.
-                </p>
-                
-                <div className="flex flex-col gap-3">
-                  <a
-                    href="https://github.com/AHILL-0121"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-3 text-gray-700 hover:text-emerald-600 transition-colors group"
-                  >
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center group-hover:bg-emerald-50 transition-colors">
-                      <Github className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium">GitHub</p>
-                      <p className="text-sm text-gray-500">@AHILL-0121</p>
-                    </div>
-                  </a>
-                  
-                  <div className="flex items-center gap-3 text-gray-700">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Mail className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-medium">Email</p>
-                      <p className="text-sm text-gray-500">Use the contact form →</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            {/* Contact Form */}
-            <div className="bg-gradient-to-br from-emerald-50 to-amber-50 rounded-xl p-8 shadow-lg border">
-              <h3 className="text-xl font-semibold text-gray-900 mb-6 flex items-center gap-2">
-                <Mail className="h-5 w-5 text-emerald-600" />
-                Send a Message
-              </h3>
-              <ContactForm />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Footer */}
-      <footer className="border-t bg-white">
-        <div className="container mx-auto px-6 py-8">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="flex items-center gap-2">
-              <TreePine className="h-6 w-6 text-emerald-600" />
-              <span className="font-semibold text-gray-800">Family Tree Generator</span>
-            </div>
-            <div className="flex items-center gap-6">
-              <a
-                href="https://github.com/AHILL-0121"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-gray-500 hover:text-emerald-600 transition-colors flex items-center gap-2"
-              >
-                <Github className="h-4 w-4" />
-                <span className="text-sm">GitHub</span>
-              </a>
-              <a
-                href="#contact"
-                className="text-gray-500 hover:text-emerald-600 transition-colors text-sm"
-              >
-                Contact
-              </a>
-            </div>
-            <p className="text-gray-500 text-sm">
-              © {new Date().getFullYear()} Family Tree Generator. Made by{" "}
-              <a
-                href="https://github.com/AHILL-0121"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-emerald-600 hover:underline"
-              >
-                AHILL-0121
-              </a>
-            </p>
-          </div>
-        </div>
-      </footer>
-    </div>
+    <svg viewBox="0 0 22 22" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-[22px] w-[22px]" aria-hidden>
+      <rect x="2" y="2.5" width="7" height="5" rx="1.2" /><rect x="13" y="2.5" width="7" height="5" rx="1.2" />
+      <path d="M9 4.2h4M9 5.8h4M11 5v5.5M5.5 10.5h11M5.5 10.5V14M16.5 10.5V14" />
+      <rect x="2" y="14" width="7" height="5" rx="1.2" /><rect x="13" y="14" width="7" height="5" rx="1.2" fill="currentColor" />
+    </svg>
   );
 }
 
-function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+export default function LandingPage() {
+  const people = samplePeople();
+  const poster = buildPosterSVG(people, {
+    title: SAMPLE_NAME, style: "illus", include: "whole", focus: null, rootId: mainRoot(people), dir: "bottom",
+    labels: "tamil", anchor: "sample-vishal", size: "a4", orient: "landscape", foliage: "lush",
+  });
+
   return (
-    <div className="bg-white rounded-xl p-6 shadow-lg border hover:shadow-xl transition-shadow">
-      <div className="w-14 h-14 bg-emerald-100 rounded-lg flex items-center justify-center text-emerald-600 mb-4">
-        {icon}
-      </div>
-      <h3 className="text-xl font-semibold text-gray-900 mb-2">{title}</h3>
-      <p className="text-gray-600">{description}</p>
+    <div className="min-h-screen bg-paper text-ink">
+      <ForceLightTheme />
+      <header className="mx-auto flex max-w-6xl items-center gap-3 px-5 py-5">
+        <BrandMark />
+        <span className="text-sm font-semibold tracking-tight">Family Tree Builder</span>
+        <div className="flex-1" />
+        <a href="#contact" className="text-[13px] text-ink-2 hover:text-ink">Contact</a>
+        <Link href="/editor" className="inline-flex h-8 items-center rounded-lg border border-ink bg-ink px-3 text-[13px] font-medium text-surface hover:opacity-90">Open the editor</Link>
+      </header>
+
+      <main>
+        <section className="mx-auto max-w-6xl px-5 pb-16 pt-10">
+          <h1 className="max-w-3xl font-serif text-[clamp(2.2rem,5vw,3.6rem)] font-normal leading-[1.05] tracking-tight">
+            Write down who everyone is, before no one remembers.
+          </h1>
+          <p className="mt-4 max-w-2xl text-lg text-ink-2">
+            Build your family tree, see exactly how two people are related in English and தமிழ், and print the whole family as a poster. It stays in your browser.
+          </p>
+          <div className="mt-7 flex flex-wrap items-center gap-4">
+            <Link href="/editor" className="inline-flex h-10 items-center rounded-lg border border-ink bg-ink px-4 text-sm font-medium text-surface hover:opacity-90">Open the editor</Link>
+            <a href="#relate" className="text-sm text-ink-2 underline decoration-rule underline-offset-4 hover:text-ink">See how relationships work</a>
+          </div>
+        </section>
+
+        <section id="relate" className="mx-auto max-w-6xl scroll-mt-6 px-5 pb-20">
+          <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">Relate · try it</p>
+          <RelateDemo />
+        </section>
+
+        <section className="border-y border-rule bg-surface">
+          <div className="mx-auto grid max-w-6xl gap-12 px-5 py-16 md:grid-cols-2 md:items-center">
+            <div>
+              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">Kinship, properly</p>
+              <h2 className="font-serif text-3xl font-normal leading-tight">சித்தப்பா or பெரியப்பா? It depends, and the app knows.</h2>
+              <p className="mt-4 text-ink-2">
+                Tamil kinship words change with who is asking, whose side of the family a relative is on, and who is older.
+                A father&apos;s younger brother is சித்தப்பா, an elder one பெரியப்பா; a mother&apos;s brother&apos;s son is a cross cousin, a father&apos;s brother&apos;s son is a brother.
+                Add birth years and the right word appears; leave them out and you see both, with a note explaining why.
+              </p>
+            </div>
+            <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-[14px] border border-rule bg-rule text-sm">
+              {[["Father's younger brother", "சித்தப்பா"], ["Mother's brother", "மாமா"], ["Father's sister's son", "அத்தை மகன்"], ["Wife's younger sister", "கொழுந்தியாள்"], ["Husband's sister", "நாத்தனார்"], ["Wife's sister's husband", "சகலை"]].map(([en, ta]) => (
+                <div key={en} className="bg-card p-4">
+                  <dt className="text-ink-3">{en}</dt>
+                  <dd lang="ta" className="mt-1 font-tamil text-lg font-semibold">{ta}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </section>
+
+        <section className="mx-auto grid max-w-6xl gap-12 px-5 py-16 md:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)] md:items-center">
+          <div>
+            <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">Take it with you</p>
+            <h2 className="font-serif text-3xl font-normal leading-tight">A poster for the wall, a file for safekeeping.</h2>
+            <p className="mt-4 text-ink-2">
+              Print the family as a clean register or a grown tree, labelled in Tamil from any one person&apos;s point of view: a gift that says who everyone is to them.
+              Back up your data as a file you can open again on any device.
+            </p>
+          </div>
+          <div className="overflow-hidden rounded-[6px] shadow-float [&_svg]:h-auto [&_svg]:w-full" aria-label="Example poster" role="img" dangerouslySetInnerHTML={{ __html: poster }} />
+        </section>
+
+        <section className="border-t border-rule bg-surface">
+          <div className="mx-auto grid max-w-6xl gap-10 px-5 py-16 md:grid-cols-2">
+            <div>
+              <p className="mb-3 font-mono text-[11px] uppercase tracking-[0.14em] text-ink-3">Private by default</p>
+              <h2 className="font-serif text-3xl font-normal leading-tight">Your family stays on your device.</h2>
+              <p className="mt-4 text-ink-2">
+                There&apos;s no account and no server copy. Everything saves in this browser as you type; export a backup whenever you like, and import it anywhere.
+              </p>
+            </div>
+            <div id="contact" className="scroll-mt-6">
+              <h2 className="mb-4 font-serif text-2xl font-normal">Questions or feedback?</h2>
+              <ContactForm />
+            </div>
+          </div>
+        </section>
+      </main>
+
+      <footer className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-5 py-8 text-[13px] text-ink-3">
+        <span>Family Tree Builder</span>
+        <span aria-hidden>·</span>
+        <a href="https://github.com/AHILL-0121/Family-Tree-Builder" target="_blank" rel="noopener noreferrer" className="hover:text-ink">Source on GitHub</a>
+        <div className="flex-1" />
+        <span>Made by <a href="https://github.com/AHILL-0121" target="_blank" rel="noopener noreferrer" className="hover:text-ink">AHILL-0121</a></span>
+      </footer>
     </div>
   );
 }

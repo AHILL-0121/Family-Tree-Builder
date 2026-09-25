@@ -1,16 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Send, Loader2, CheckCircle } from "lucide-react";
+
+const field = "h-10 w-full rounded-lg border border-rule bg-card px-3 text-sm outline-none focus:border-ink-3 focus:shadow-[0_0_0_3px_hsl(var(--rule-2))]";
 
 export function ContactForm() {
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     message: "",
+    website: "", // honeypot, hidden from people
   });
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -19,26 +18,18 @@ export function ContactForm() {
     e.preventDefault();
     setStatus("loading");
     setErrorMessage("");
-
     try {
       const response = await fetch("/api/contact", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
-
       if (!response.ok) {
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
         throw new Error(data.error || "Failed to send message");
       }
-
       setStatus("success");
-      setFormData({ name: "", email: "", message: "" });
-      
-      // Reset status after 5 seconds
-      setTimeout(() => setStatus("idle"), 5000);
+      setFormData({ name: "", email: "", message: "", website: "" });
     } catch (error) {
       setStatus("error");
       setErrorMessage(error instanceof Error ? error.message : "Failed to send message");
@@ -47,76 +38,36 @@ export function ContactForm() {
 
   if (status === "success") {
     return (
-      <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-8 text-center">
-        <CheckCircle className="h-12 w-12 text-emerald-600 mx-auto mb-4" />
-        <h3 className="text-xl font-semibold text-emerald-800 mb-2">Message Sent!</h3>
-        <p className="text-emerald-600">Thank you for reaching out. I&apos;ll get back to you soon.</p>
+      <div className="rounded-[10px] border border-rule bg-card p-5" role="status">
+        <p className="font-serif text-xl">Thank you. Your message is on its way.</p>
+        <button type="button" className="mt-3 text-[13px] text-ink-2 underline underline-offset-4" onClick={() => setStatus("idle")}>Send another</button>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="name" className="text-gray-700">Name</Label>
-        <Input
-          id="name"
-          type="text"
-          placeholder="Your name"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          required
-          className="bg-white"
-        />
+    <form onSubmit={handleSubmit} className="grid gap-3">
+      <div aria-hidden="true" style={{ position: "absolute", left: "-10000px", width: 1, height: 1, overflow: "hidden" }}>
+        <label htmlFor="website">Website</label>
+        <input id="website" type="text" tabIndex={-1} autoComplete="off" value={formData.website} onChange={(e) => setFormData({ ...formData, website: e.target.value })} />
       </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="email" className="text-gray-700">Email</Label>
-        <Input
-          id="email"
-          type="email"
-          placeholder="your.email@example.com"
-          value={formData.email}
-          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-          required
-          className="bg-white"
-        />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="grid gap-1 text-[12.5px] text-ink-2">Name
+          <input className={field} value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} required maxLength={100} autoComplete="name" />
+        </label>
+        <label className="grid gap-1 text-[12.5px] text-ink-2">Email
+          <input className={field} type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required maxLength={200} autoComplete="email" />
+        </label>
       </div>
-      
-      <div className="space-y-2">
-        <Label htmlFor="message" className="text-gray-700">Message</Label>
-        <textarea
-          id="message"
-          placeholder="Your message..."
-          value={formData.message}
-          onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-          required
-          rows={4}
-          className="flex w-full rounded-md border border-input bg-white px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-        />
+      <label className="grid gap-1 text-[12.5px] text-ink-2">Message
+        <textarea className={`${field} h-28 resize-none py-2`} value={formData.message} onChange={(e) => setFormData({ ...formData, message: e.target.value })} required maxLength={5000} />
+      </label>
+      {status === "error" && <p className="text-[13px] text-brand" role="alert">{errorMessage}</p>}
+      <div>
+        <button type="submit" disabled={status === "loading"} className="inline-flex h-9 items-center rounded-lg border border-ink bg-ink px-4 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-60">
+          {status === "loading" ? "Sending…" : "Send message"}
+        </button>
       </div>
-
-      {status === "error" && (
-        <p className="text-red-500 text-sm">{errorMessage}</p>
-      )}
-
-      <Button
-        type="submit"
-        disabled={status === "loading"}
-        className="w-full bg-emerald-600 hover:bg-emerald-700"
-      >
-        {status === "loading" ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Sending...
-          </>
-        ) : (
-          <>
-            <Send className="h-4 w-4 mr-2" />
-            Send Message
-          </>
-        )}
-      </Button>
     </form>
   );
 }
