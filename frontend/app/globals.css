@@ -2,67 +2,72 @@
 @tailwind components;
 @tailwind utilities;
 
+/* "The Register": warm paper, ink, one accent. See plan/design.md §6. */
 @layer base {
   :root {
-    --background: 40 30% 96%;
-    --foreground: 150 30% 15%;
+    /* brand tokens (HSL channels) */
+    --paper: 44 31% 93%;
+    --surface: 43 47% 97%;
+    --ink: 45 8% 10%;
+    --ink-2: 42 8% 32%;
+    --ink-3: 42 7% 39%; /* ≥4.6:1 on paper, card and rule-2 (WCAG AA) */
+    --rule: 41 22% 83%;
+    --rule-2: 41 30% 89%;
+    --line: 42 11% 59%;
+    --grid: 41 24% 82%;
+    --brand: 11 62% 43%;
+    --brand-wash: 19 56% 91%;
+    --portrait: 41 33% 89%;
+    --ok: 136 32% 36%;
+    /* portrait rings by recorded gender (muted to sit on paper; kept clear of --brand) */
+    --g-male: 213 34% 47%;
+    --g-female: 339 37% 54%;
+    --g-other: 42 6% 51%;
 
+    /* shadcn tokens mapped onto the palette */
+    --background: var(--paper);
+    --foreground: var(--ink);
     --card: 0 0% 100%;
-    --card-foreground: 150 30% 15%;
-
-    --popover: 0 0% 100%;
-    --popover-foreground: 150 30% 15%;
-
-    --primary: 152 55% 35%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 35 80% 55%;
-    --secondary-foreground: 35 80% 15%;
-
-    --muted: 40 20% 90%;
-    --muted-foreground: 150 15% 40%;
-
-    --accent: 35 70% 50%;
-    --accent-foreground: 35 70% 10%;
-
-    --destructive: 0 84% 60%;
+    --card-foreground: var(--ink);
+    --popover: var(--surface);
+    --popover-foreground: var(--ink);
+    --primary: var(--ink);
+    --primary-foreground: var(--surface);
+    --secondary: var(--rule-2);
+    --secondary-foreground: var(--ink);
+    --muted: var(--rule-2);
+    --muted-foreground: var(--ink-3);
+    --accent: var(--rule-2);
+    --accent-foreground: var(--ink);
+    --destructive: var(--brand);
     --destructive-foreground: 0 0% 100%;
-
-    --border: 150 20% 80%;
-    --input: 150 20% 80%;
-    --ring: 152 55% 35%;
-
-    --radius: 0.5rem;
+    --border: var(--rule);
+    --input: var(--rule);
+    --ring: var(--brand);
+    --radius: 0.625rem;
+    color-scheme: light;
   }
 
   .dark {
-    --background: 150 30% 10%;
-    --foreground: 40 30% 96%;
-
-    --card: 150 25% 15%;
-    --card-foreground: 40 30% 96%;
-
-    --popover: 150 25% 15%;
-    --popover-foreground: 40 30% 96%;
-
-    --primary: 152 55% 45%;
-    --primary-foreground: 0 0% 100%;
-
-    --secondary: 35 70% 45%;
-    --secondary-foreground: 35 70% 95%;
-
-    --muted: 150 20% 20%;
-    --muted-foreground: 40 20% 70%;
-
-    --accent: 35 60% 45%;
-    --accent-foreground: 35 60% 95%;
-
-    --destructive: 0 62% 50%;
-    --destructive-foreground: 0 0% 100%;
-
-    --border: 150 20% 25%;
-    --input: 150 20% 25%;
-    --ring: 152 55% 45%;
+    --paper: 40 8% 7%;
+    --surface: 45 8% 10%;
+    --ink: 42 25% 90%;
+    --ink-2: 42 11% 63%;
+    --ink-3: 41 7% 56%;
+    --rule: 40 9% 19%;
+    --rule-2: 40 8% 15%;
+    --line: 41 8% 39%;
+    --grid: 34 9% 15%;
+    --brand: 14 68% 62%;
+    --brand-wash: 14 29% 18%;
+    --portrait: 37 10% 16%;
+    --ok: 133 31% 61%;
+    --g-male: 213 45% 64%;
+    --g-female: 339 45% 68%;
+    --g-other: 42 6% 60%;
+    --card: 36 8% 12%;
+    --destructive-foreground: 45 8% 10%;
+    color-scheme: dark;
   }
 }
 
@@ -71,41 +76,43 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+  :focus-visible {
+    outline: 2px solid hsl(var(--brand));
+    outline-offset: 2px;
   }
 }
 
-/* Family Chart Circular Styles */
-#donatsoSvgContainer svg {
-  width: 100% !important;
-  height: 100% !important;
+@keyframes nodeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
 }
 
-#donatsoSvgContainer .card {
-  cursor: pointer;
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
-#donatsoSvgContainer .card rect.card-bg {
-  rx: 50px !important;
-  ry: 50px !important;
-}
+/* Poster preview interactions (the exported file carries none of this) */
+.poster-canvas svg { width: 100%; height: 100%; filter: drop-shadow(0 1px 1px rgb(0 0 0 / 0.08)) drop-shadow(0 14px 30px rgb(0 0 0 / 0.22)); }
+.poster-canvas .pcard { cursor: pointer; outline: none; transition: opacity 0.2s; }
+.poster-canvas .pcard.hot > .frame,
+.poster-canvas .pcard:focus-visible > .frame { stroke: #9c4a2c; stroke-width: 2.6; }
+.poster-canvas .wood { transition: opacity 0.25s; }
+.poster-canvas svg.tracing .wood:not(.on) { opacity: 0.2; }
+.poster-canvas svg.tracing .pcard:not(.on) { opacity: 0.45; }
+.poster-canvas .grow-w { transform-box: fill-box; transform-origin: 50% 100%; animation: pgrow 0.8s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d); }
+.poster-canvas .grow-l { animation: pfade 0.7s cubic-bezier(.2,.7,.2,1) both; animation-delay: var(--d); }
+@keyframes pgrow { from { transform: scale(0.35, 0); } to { transform: none; } }
+@keyframes pfade { from { opacity: 0; } to { opacity: 1; } }
 
-#donatsoSvgContainer .card image {
-  clip-path: circle(35px at center);
-}
-
-#donatsoSvgContainer .card text {
-  font-weight: 600 !important;
-  font-size: 11px !important;
-}
-
-#donatsoSvgContainer .card .card-male rect.card-bg {
-  stroke: #3b82f6 !important;
-  stroke-width: 3px !important;
-}
-
-#donatsoSvgContainer .card .card-female rect.card-bg {
-  stroke: #ec4899 !important;
-  stroke-width: 3px !important;
-}
-
+/* Editor columns: side panels can be hidden on desktop (see EditorApp) */
+.editor-grid { --rail-w: 248px; --insp-w: 360px; }
+@media (max-width: 1100px) { .editor-grid { --rail-w: 220px; --insp-w: 320px; } }
+@media (min-width: 901px) { .editor-grid { grid-template-columns: var(--rail-col) minmax(0, 1fr) var(--insp-col); } }

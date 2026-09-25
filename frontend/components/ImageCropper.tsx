@@ -3,8 +3,7 @@
 import React, { useState, useRef, useCallback } from "react";
 import ReactCrop, { Crop, PixelCrop, centerCrop, makeAspectCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-import { Button } from "@/components/ui/button";
-import { Check, X, RotateCcw } from "lucide-react";
+import { Check, RotateCcw } from "lucide-react";
 
 interface ImageCropperProps {
   imageSrc: string;
@@ -57,42 +56,38 @@ export function ImageCropper({
       throw new Error("Crop data not available");
     }
 
-    const canvas = document.createElement("canvas");
+    // Avatars are shown at most ~100 px, so store at most 256 px: a phone photo would
+    // otherwise add megabytes to every save and export.
+    const MAX = 256;
     const scaleX = image.naturalWidth / image.width;
     const scaleY = image.naturalHeight / image.height;
-
-    // Set canvas size to the crop size (scaled)
-    const pixelRatio = window.devicePixelRatio || 1;
-    canvas.width = Math.floor(completedCrop.width * scaleX * pixelRatio);
-    canvas.height = Math.floor(completedCrop.height * scaleY * pixelRatio);
+    const cropWidth = completedCrop.width * scaleX;
+    const cropHeight = completedCrop.height * scaleY;
+    const scale = Math.min(1, MAX / Math.max(cropWidth, cropHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(cropWidth * scale));
+    canvas.height = Math.max(1, Math.round(cropHeight * scale));
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
       throw new Error("Could not get canvas context");
     }
-
-    ctx.scale(pixelRatio, pixelRatio);
     ctx.imageSmoothingQuality = "high";
-
-    const cropX = completedCrop.x * scaleX;
-    const cropY = completedCrop.y * scaleY;
-    const cropWidth = completedCrop.width * scaleX;
-    const cropHeight = completedCrop.height * scaleY;
-
     ctx.drawImage(
       image,
-      cropX,
-      cropY,
+      completedCrop.x * scaleX,
+      completedCrop.y * scaleY,
       cropWidth,
       cropHeight,
       0,
       0,
-      completedCrop.width * scaleX,
-      completedCrop.height * scaleY
+      canvas.width,
+      canvas.height
     );
 
-    // Convert to data URL (JPEG for smaller file size)
-    return canvas.toDataURL("image/jpeg", 0.9);
+    // WebP where supported (browsers without it silently return PNG), JPEG otherwise
+    const webp = canvas.toDataURL("image/webp", 0.82);
+    return webp.startsWith("data:image/webp") ? webp : canvas.toDataURL("image/jpeg", 0.85);
   }, [completedCrop]);
 
   const handleConfirm = async () => {
@@ -111,13 +106,10 @@ export function ImageCropper({
     }
   };
 
+  const btn = "inline-flex h-8 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg border px-3 text-[13px] font-medium";
   return (
     <div className="flex flex-col gap-4">
-      <div className="text-sm text-muted-foreground text-center">
-        Drag to adjust the crop area
-      </div>
-      
-      <div className="flex justify-center bg-muted/30 rounded-lg p-4 max-h-[400px] overflow-auto">
+      <div className="flex max-h-[400px] justify-center overflow-auto rounded-[10px] border border-rule bg-[radial-gradient(hsl(var(--grid))_1px,transparent_1px)] p-4 [background-size:16px_16px]">
         <ReactCrop
           crop={crop}
           onChange={(_, percentCrop) => setCrop(percentCrop)}
@@ -126,6 +118,7 @@ export function ImageCropper({
           circularCrop
           className="max-w-full"
         >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             ref={imgRef}
             src={imageSrc}
@@ -137,36 +130,19 @@ export function ImageCropper({
         </ReactCrop>
       </div>
 
-      <div className="flex justify-center gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleReset}
-          className="gap-1"
-        >
+      <div className="flex items-center gap-2">
+        <button type="button" onClick={handleReset} className={`${btn} border-transparent text-ink-2 hover:bg-rule-2 hover:text-ink`}>
           <RotateCcw className="h-4 w-4" />
           Reset
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onCancel}
-          className="gap-1"
-        >
-          <X className="h-4 w-4" />
+        </button>
+        <div className="flex-1" />
+        <button type="button" onClick={onCancel} className={`${btn} border-rule bg-card hover:border-line`}>
           Cancel
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          onClick={handleConfirm}
-          className="gap-1"
-        >
+        </button>
+        <button type="button" onClick={handleConfirm} className={`${btn} border-ink bg-ink text-surface hover:opacity-90`}>
           <Check className="h-4 w-4" />
-          Apply
-        </Button>
+          Use photo
+        </button>
       </div>
     </div>
   );

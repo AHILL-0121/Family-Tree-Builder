@@ -1,121 +1,48 @@
-# 🌳 Family Tree Builder
+# Family Tree Builder
 
-<div align="center">
+Build your family tree, see exactly how two people are related — in English **and தமிழ்** — and print the whole family as a poster. Everything stays in your browser.
 
-<!-- HERO BANNER -->
-<img src="docs/hero/hero-banner.png" alt="Family Tree Builder Hero Banner" width="100%" />
+**Live:** https://sa-fam-tree-builder.vercel.app/
 
-**Build, visualize, and understand complex family relationships — beautifully.**
+![The editor: people grouped by generation, the tree on a paper canvas, and the selected person's relations](images/editor.png)
 
-[![Stars](https://img.shields.io/github/stars/AHILL-0121/Family-Tree-Builder?style=for-the-badge)](https://github.com/AHILL-0121/Family-Tree-Builder/stargazers)
-[![Forks](https://img.shields.io/github/forks/AHILL-0121/Family-Tree-Builder?style=for-the-badge)](https://github.com/AHILL-0121/Family-Tree-Builder/network)
-[![Issues](https://img.shields.io/github/issues/AHILL-0121/Family-Tree-Builder?style=for-the-badge)](https://github.com/AHILL-0121/Family-Tree-Builder/issues)
-[![License](https://img.shields.io/github/license/AHILL-0121/Family-Tree-Builder?style=for-the-badge)](LICENSE)
+## What it does
 
-🔗 **Live Demo**  
-👉 https://fam-tree-builder.vercel.app/
+- **Editor.** Click a person to see their relations; `+` handles on the card add a parent, spouse or child right where they belong. Arrow keys move between relatives, `Ctrl K` finds anyone, `Ctrl Z` undoes anything.
+- **Relate.** Pick two people and get the relationship — e.g. *Gopal is Vishal's maternal uncle · மாமா* — with the chain that connects them highlighted on the tree. Tamil terms follow who is asking, which side of the family, and who is older (சித்தப்பா vs பெரியப்பா, parallel vs cross cousins, in-law terms by speaker).
+- **Descendants.** Re-root the tree on any person to see just their line.
+- **Poster.** Print or download (PNG, SVG, PDF) as a clean *Register* chart or an *Illustrated* grown tree, labelled in Tamil from any one person's point of view.
+- **Private by default.** No account, no server copy. It autosaves in this browser (IndexedDB); export a JSON backup and import it anywhere.
 
-</div>
+![Relate mode: the route from Vishal to Gopal, and the result in English and Tamil](images/relate.png)
+![Poster export: an illustrated tree with Tamil relation tags](images/poster.png)
 
----
+## Run it locally
 
-## 📖 About the Project
-
-**Family Tree Builder** is a modern web application designed to handle real-world genealogy — not just simple trees, but **complex, multi-generation family structures**.
-
-It focuses on:
-- Clean visual hierarchy
-- Intuitive relationship modeling
-- Scalable architecture for future backend integrations
-
-Built with a product mindset — clarity for users, flexibility for developers.
-
----
-
-## ✨ Key Features
-
-- 🌿 **Interactive Tree Visualization**  
-  Smooth pan, zoom, and auto-layout for large family graphs.
-
-- 👤 **Member Management**  
-  Create, update, and organize detailed individual profiles.
-
-- 🔗 **Relationship Modeling**  
-  Accurately represent parent–child, spouse, and sibling links.
-
-- 🔍 **Fast Search & Navigation**  
-  Instantly locate individuals in deeply nested trees.
-
-- 💾 **Persistence-Ready Design**  
-  Easily integrates with APIs, databases, or serverless backends.
-
----
-
-## 🎬 Live Demo (In Action)
-
-
-
-![Demo GIF](https://github.com/AHILL-0121/Family-Tree-Builder/blob/main/images/fam.gif?raw=true)
-
-**What this demonstrates:**
-- Creating family members
-- Connecting relationships
-- Navigating large trees smoothly
-- Real-time visual updates without reloads
-
----
-
-## 🖥️ Screenshots
-
-### 🌳 Interactive Family Tree View
-![Tree View](https://github.com/AHILL-0121/Family-Tree-Builder/blob/main/images/Screenshot%202025-12-17%20015705.png?raw=true)
-![Tree View](https://github.com/AHILL-0121/Family-Tree-Builder/blob/main/images/Screenshot%202025-12-17%20015732.png?raw=true)
-
-**Why this matters:**  
-Shows your ability to render and manage **graph-based data structures** with clarity, performance, and UX in mind.
-
----
-
-### ➕ Add & Edit Family Members
-![Add Member](https://github.com/AHILL-0121/Family-Tree-Builder/blob/main/images/Screenshot%202025-12-17%20015642.png?raw=true)
-![Add Member](https://github.com/AHILL-0121/Family-Tree-Builder/blob/main/images/Screenshot%202025-12-17%20015715.png?raw=true)
-
-**Why recruiters care:**  
-Clean form handling, state management, and user-friendly data input — fundamentals done right.
-
----
-
-### 🔍 Relationship Explorer
-![Relationship View](https://github.com/AHILL-0121/Family-Tree-Builder/blob/main/images/Screenshot%202025-12-17%20015812.png?raw=true)
-
-**Engineering signal:**  
-Demonstrates relationship traversal logic and thoughtful UI abstraction for complex data relationships.
-
----
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **TypeScript** — type safety & maintainability  
-- **React** — component-driven UI architecture  
-
-### Deployment
-- **Vercel** — fast CI/CD and edge-ready hosting  
-
-> Backend and database layers are intentionally decoupled to allow flexible integration (REST, GraphQL, serverless, etc.).
-
----
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js **v18+**
-- npm or yarn
-
-### Installation
+Requires Node.js 20+.
 
 ```bash
 git clone https://github.com/AHILL-0121/Family-Tree-Builder.git
 cd Family-Tree-Builder/frontend
-npm install
-npm run dev
+npm ci
+npm run dev        # http://localhost:3000
+```
+
+The contact form on the landing page needs SMTP settings — copy `frontend/.env.example` to `frontend/.env.local` and fill in `SMTP_USER`, `SMTP_PASS` and `CONTACT_TO`. Without them the form replies "not configured"; everything else works.
+
+## Development
+
+```bash
+npm run typecheck   # tsc --noEmit
+npm run lint        # eslint (next/core-web-vitals)
+npm test            # vitest: graph, import, relationships (60+ golden Tamil/English cases), layout, poster
+npm run build
+```
+
+CI (`.github/workflows/ci.yml`) runs all four on every push and pull request.
+
+More detail on the code layout is in [`frontend/README.md`](frontend/README.md).
+
+## License
+
+[MIT](LICENSE) · Made by [AHILL-0121](https://github.com/AHILL-0121)
