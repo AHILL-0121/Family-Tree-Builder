@@ -40,8 +40,8 @@ describe("buildPosterSVG", () => {
     const svg = buildPosterSVG(twice, { ...base, style: "illus" }, "", { interactive: true });
     expect(count(svg, /class="pcard"/g)).toBe(5); // two couples + three children
     expect(count(svg, /data-knot="sdds"/g)).toBe(1);
-    expect(svg).toContain("sdds · 2 marriages");
-    expect(svg).toMatch(/&amp; awdaad<\/text>.*1st m\./s); // ordered by wedding date
+    expect(svg).not.toContain("marriages");
+    expect(svg).not.toMatch(/\d(st|nd) m\./);
     expect(svg).toContain("6 PEOPLE");
     const at = (id: string) => svg.match(new RegExp(`data-id="${id}"[^>]*transform="translate\\(([\\d.-]+) ([\\d.-]+)\\)`))!.slice(1).map(Number);
     const couples = [...svg.matchAll(/data-id="sdds"[^>]*transform="translate\(([\d.-]+) ([\d.-]+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);

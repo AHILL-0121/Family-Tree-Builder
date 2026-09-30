@@ -10,7 +10,7 @@ describe("imagePdf", () => {
   const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 0xff, 0xd9]);
 
   it("writes a well-formed single-page PDF with a correct xref table", async () => {
-    const raw = latin1(await bytes(imagePdf({ jpeg, width: 3, height: 2 }, { w: 841.89, h: 595.28 }, "அருள்மொழி family")));
+    const raw = latin1(await bytes(imagePdf({ data: jpeg, filter: "DCTDecode", width: 3, height: 2 }, { w: 841.89, h: 595.28 }, "அருள்மொழி family")));
     expect(raw.startsWith("%PDF-1.4\n")).toBe(true);
     expect(raw.trimEnd().endsWith("%%EOF")).toBe(true);
     expect(raw).toContain("/MediaBox [0 0 841.89 595.28]");
@@ -25,6 +25,12 @@ describe("imagePdf", () => {
       const off = Number(e.slice(0, 10));
       expect(raw.slice(off, off + 8)).toBe(`${i + 1} 0 obj\n`);
     });
+  });
+
+  it("names the filter the image data was written with", async () => {
+    const raw = latin1(await bytes(imagePdf({ data: new Uint8Array([0x78, 0x9c, 3, 0]), filter: "FlateDecode", width: 1, height: 1 }, { w: 10, h: 10 })));
+    expect(raw).toContain("/Filter /FlateDecode /Length 4");
+    expect(raw).not.toContain("DCTDecode");
   });
 
   it("converts A4 poster units to points", () => {

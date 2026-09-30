@@ -47,7 +47,7 @@ const PREVIEW_FONTS: PosterFonts = {
 export const PAPER: Record<PaperSize, { w: number; h: number; f: number; name: string }> = {
   a4: { w: 1188, h: 840, f: 2.953, name: "A4" }, // 4 units per mm; f = multiplier to 300 dpi
   a3: { w: 1680, h: 1188, f: 2.953, name: "A3" },
-  a2: { w: 2376, h: 1680, f: 1.969, name: "A2" }, // 200 dpi keeps the canvas a sane size
+  a2: { w: 2376, h: 1680, f: 2.953, name: "A2" }, // 7016 × 4961 px
   phone: { w: 645, h: 1398, f: 2, name: "phone" },
 };
 
@@ -124,7 +124,6 @@ function labelFor(people: Person[], byId: Map<string, Person>, o: PosterOptions,
 // node per marriage, on the same generation row; each couple carries that marriage's children.
 interface GNode { id: string; key: string; members: string[]; depth: number; parent: GNode | null; kids: GNode[]; x: number; w: number; kw: number; cx: number; cy: number; fork?: number; nth?: number; wt?: number; bey?: string[] }
 
-const ordinal = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th");
 
 function growthTree(people: Person[], byId: Map<string, Person>, o: PosterOptions): GNode | null {
   const anc = o.include === "anc", seen = new Set<string>();
@@ -333,19 +332,15 @@ function illusTree(people: Person[], byId: Map<string, Person>, o: PosterOptions
   const order: GNode[] = []; walk(root, (g) => order.push(g));
   order.sort((a, b) => b.cy - a.cy).forEach((g) => {
     if (g.fork) {
-      const side = g.parent && g.parent.cx > g.cx ? -1 : 1, lx = g.cx + side * 40, ly = g.cy + 36;
-      const note = `${getFullName(P(g.id))} · ${g.fork} marriages`;
-      meds += `<g data-knot="${esc(g.id)}"><circle cx="${f1(g.cx)}" cy="${f1(g.cy)}" r="7" fill="${barkDark}"/>` +
-        `<path d="M${f1(g.cx + side * 7)} ${f1(g.cy + 5)}L${f1(lx - side * 4)} ${f1(ly - 4)}" stroke="${c.ink3}" stroke-width=".8"/>` +
-        `<text x="${f1(lx)}" y="${f1(ly + 4)}" text-anchor="${side > 0 ? "start" : "end"}" class="mono" font-size="10" fill="${c.ink2}">${esc(note)}</text></g>`;
-      grow(g.cx, g.cy, 8); grow(lx + side * Array.from(note).length * 6.2, ly + 8);
+      meds += `<g data-knot="${esc(g.id)}"><circle cx="${f1(g.cx)}" cy="${f1(g.cy)}" r="7" fill="${barkDark}"/></g>`;
+      grow(g.cx, g.cy, 8);
       return;
     }
     const R = rad(g), p = P(g.id), sp = g.members.slice(1).map(P);
     const isAnchor = lab && !!o.anchor && g.members.includes(o.anchor);
     const n1 = getFullName(p), n2 = sp.length ? "& " + getFullName(sp[0]) + (sp.length > 1 ? ` +${sp.length - 1}` : "") : "";
     const fit = (s: string, base: number, room: number) => Math.min(base, base * room / Math.max(room, Array.from(s).length));
-    const yrs = g.nth ? ordinal(g.nth) + " m." : yearsLabel(p), deceased = !!p.death;
+    const yrs = yearsLabel(p), deceased = !!p.death;
     let txt = "";
     if (n2) {
       txt += `<text y="-7" text-anchor="middle" class="ser" font-size="${fit(n1, 13.5, 11).toFixed(1)}" font-weight="500" fill="${deceased ? c.ink2 : c.ink}">${esc(truncate(n1, 18))}</text>`;

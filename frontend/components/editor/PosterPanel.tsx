@@ -9,7 +9,9 @@ import { Person, getFullName } from "@/lib/types";
 import { buildPosterSVG, mainRoot, PAPER, paperDims, PosterOptions, posterPeopleCount } from "@/lib/poster";
 import { embeddedPosterFonts } from "@/lib/poster-fonts";
 import { downloadBlob, slug } from "@/lib/io";
-import { imagePdf, unitsToPt } from "@/lib/pdf";
+import { canvasToFlateRGB, imagePdf, unitsToPt } from "@/lib/pdf";
+import { pngWithDpi } from "@/lib/png";
+import { printablePosterHTML, printHTML } from "@/lib/print";
 import { byBirthYear, yearOf } from "@/lib/person-display";
 import { useToast } from "@/hooks/use-toast";
 
@@ -49,7 +51,7 @@ export function PosterPanel({ open, people, treeName, selectedId, onClose, onBac
     labels: "names", anchor: null, size: "a4", orient: "landscape", foliage: "lush",
   }));
   const [animate, setAnimate] = useState(false);
-  const [busy, setBusy] = useState<"" | "png" | "svg" | "pdf">("");
+  const [busy, setBusy] = useState<"" | "png" | "svg" | "pdf" | "print">("");
   const [zoomK, setZoomK] = useState(1);
   const canvasRef = useRef<HTMLDivElement>(null);
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -155,7 +157,7 @@ export function PosterPanel({ open, people, treeName, selectedId, onClose, onBac
       canvas.width = Math.round(d.w * d.f);
       canvas.height = Math.round(d.h * d.f);
       const ctx = canvas.getContext("2d")!;
-      ctx.fillStyle = "#ffffff"; // JPEG has no transparency
+      ctx.fillStyle = "#ffffff"; // print has no transparency
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       return { canvas, d };
@@ -166,11 +168,12 @@ export function PosterPanel({ open, people, treeName, selectedId, onClose, onBac
   const exportPNG = async () => {
     setBusy("png");
     try {
-      const { canvas } = await renderCanvas();
+      const { canvas, d } = await renderCanvas();
       const blob = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/png"));
       if (!blob) throw new Error("toBlob failed");
-      downloadBlob(blob, `${slug(opts().title)}-${o.style}-${o.size}.png`);
-      toast({ title: "Saved PNG", description: `${canvas.width} × ${canvas.height} px` });
+      const dpi = Math.round(d.f * 101.6);
+      downloadBlob(new Blob([pngWithDpi(new Uint8Array(await blob.arrayBuffer()), o.size === "phone" ? 72 : dpi) as BlobPart], { type: "image/png" }), `${slug(opts().title)}-${o.style}-${o.size}.png`);
+      toast({ title: "Saved PNG", description: `${canvas.width} × ${canvas.height} px${o.size === "phone" ? "" : `, ${dpi} dpi`}` });
     } catch {
       toast({ title: "Couldn't render the PNG", description: "Try the SVG download instead.", variant: "destructive" });
     } finally { setBusy(""); }
@@ -179,13 +182,24 @@ export function PosterPanel({ open, people, treeName, selectedId, onClose, onBac
     setBusy("pdf");
     try {
       const { canvas, d } = await renderCanvas();
-      const jpeg = await new Promise<Blob | null>((r) => canvas.toBlob(r, "image/jpeg", 0.92));
-      if (!jpeg) throw new Error("toBlob failed");
-      const pdf = imagePdf({ jpeg: new Uint8Array(await jpeg.arrayBuffer()), width: canvas.width, height: canvas.height }, { w: unitsToPt(d.w), h: unitsToPt(d.h) }, opts().title);
+      const data = await canvasToFlateRGB(canvas);
+      const pdf = imagePdf({ data, filter: "FlateDecode", width: canvas.width, height: canvas.height }, { w: unitsToPt(d.w), h: unitsToPt(d.h) }, opts().title);
       downloadBlob(pdf, `${slug(opts().title)}-${o.style}-${o.size}.pdf`);
-      toast({ title: "Saved PDF", description: `${PAPER[o.size].name} ${o.orient}, print-ready at ${Math.round(d.f * 101.6)} dpi` });
+      toast({ title: "Saved PDF", description: `${PAPER[o.size].name} ${o.orient}, lossless, print-ready at ${Math.round(d.f * 101.6)} dpi` });
     } catch {
       toast({ title: "Couldn't make the PDF", description: "Try the PNG or SVG download instead.", variant: "destructive" });
+    } finally { setBusy(""); }
+  };
+  // Vector PDF: the browser's print dialog, "Save as PDF", at the exact paper size
+  const printPoster = async () => {
+    setBusy("print");
+    try {
+      const { css, fonts } = await embeddedPosterFonts().catch(() => ({ css: "", fonts: undefined }));
+      const d = paperDims(o);
+      toast({ title: "Choose “Save as PDF”", description: "Set the destination to Save as PDF, not Microsoft Print to PDF: that one flattens the poster into a picture." });
+      await printHTML(printablePosterHTML(buildPosterSVG(people, opts(), css, { fonts }), { w: d.w / 4, h: d.h / 4 }, opts().title));
+    } catch {
+      toast({ title: "Couldn't open the print dialog", description: "Try the image PDF or SVG download instead.", variant: "destructive" });
     } finally { setBusy(""); }
   };
 
@@ -276,7 +290,7 @@ export function PosterPanel({ open, people, treeName, selectedId, onClose, onBac
           )}
           <label className="grid gap-1.5 text-[12.5px] text-ink-2">Paper
             <select className={selectCls} value={o.size} onChange={(e) => set("size", e.target.value as PosterOptions["size"])}>
-              <option value="a4">A4 · 300 dpi</option><option value="a3">A3 · 300 dpi</option><option value="a2">A2 · 200 dpi</option><option value="phone">Phone wallpaper</option>
+              <option value="a4">A4 · 300 dpi</option><option value="a3">A3 · 300 dpi</option><option value="a2">A2 · 300 dpi</option><option value="phone">Phone wallpaper</option>
             </select>
           </label>
           {o.size !== "phone" && <Segmented label="Orientation" value={o.orient} options={[["landscape", "Landscape"], ["portrait", "Portrait"]]} onChange={(v) => set("orient", v)} />}
@@ -287,7 +301,8 @@ export function PosterPanel({ open, people, treeName, selectedId, onClose, onBac
         <button type="button" className={`${btn} border-transparent hover:bg-rule-2`} onClick={onBackup}>Back up data (.json)</button>
         <div className="flex-1" />
         <button type="button" className={`${btn} border-rule bg-card hover:border-line`} onClick={exportSVG} disabled={!!busy}>{busy === "svg" ? "Preparing…" : "SVG"}</button>
-        <button type="button" className={`${btn} border-rule bg-card hover:border-line`} onClick={exportPDF} disabled={!!busy || o.size === "phone"} title={o.size === "phone" ? "PDF is for paper sizes" : "Print-ready PDF at the paper size"}>{busy === "pdf" ? "Preparing…" : "PDF"}</button>
+        <button type="button" className={`${btn} border-rule bg-card hover:border-line`} onClick={exportPDF} disabled={!!busy || o.size === "phone"} title={o.size === "phone" ? "PDF is for paper sizes" : "300 dpi image PDF: works everywhere, but blurs if zoomed far in"}>{busy === "pdf" ? "Preparing…" : "Image PDF"}</button>
+        <button type="button" className={`${btn} border-rule bg-card hover:border-line`} onClick={printPoster} disabled={!!busy || o.size === "phone"} title={o.size === "phone" ? "Printing is for paper sizes" : "Print, or Save as PDF for a vector file that stays sharp at any zoom"}>{busy === "print" ? "Opening…" : "Print / vector PDF"}</button>
         <button type="button" className={`${btn} border-ink bg-ink text-surface hover:opacity-90`} onClick={exportPNG} disabled={!!busy}>{busy === "png" ? "Preparing…" : "Download PNG"}</button>
       </footer>
     </div>

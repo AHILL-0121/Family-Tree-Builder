@@ -1,6 +1,7 @@
-// Minimal single-page PDF that shows one JPEG edge to edge. The poster is rendered to a
+// Minimal single-page PDF that shows one image edge to edge. The poster is rendered to a
 // canvas first (fonts and Tamil shaping are the browser's job), so the PDF only has to
 // carry the image: no PDF library needed, and it opens in every viewer and print shop.
+// For print the image goes in losslessly (Flate-compressed RGB), never as JPEG.
 
 const enc = new TextEncoder();
 
@@ -12,7 +13,9 @@ function pdfText(s: string): string {
 }
 
 export interface PdfImage {
-  jpeg: Uint8Array;
+  /** JPEG bytes (DCTDecode) or zlib-compressed 8-bit RGB rows (FlateDecode) */
+  data: Uint8Array;
+  filter: "DCTDecode" | "FlateDecode";
   /** image size in pixels */
   width: number;
   height: number;
@@ -43,7 +46,7 @@ export function imagePdf(img: PdfImage, page: { w: number; h: number }, title = 
   obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
   obj(2, "<< /Type /Pages /Kids [3 0 R] /Count 1 >>");
   obj(3, `<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>`);
-  obj(4, `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${img.jpeg.length} >>`, img.jpeg);
+  obj(4, `<< /Type /XObject /Subtype /Image /Width ${img.width} /Height ${img.height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /${img.filter} /Length ${img.data.length} >>`, img.data);
   obj(5, `<< /Length ${content.length} >>`, content);
   obj(6, `<< /Title ${pdfText(title)} /Producer ${pdfText("Family Tree Builder")} >>`);
 
@@ -57,3 +60,23 @@ export function imagePdf(img: PdfImage, page: { w: number; h: number }, title = 
 
 /** Poster units are 4 per millimetre; PDF points are 72 per inch. */
 export const unitsToPt = (u: number) => (u / 4) * (72 / 25.4);
+
+/** Lossless image data for imagePdf: the canvas's RGB pixels, zlib-compressed. Read in row
+ *  bands so a 35-megapixel A2 render never needs one giant pixel buffer. */
+export async function canvasToFlateRGB(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+  const ctx = canvas.getContext("2d")!;
+  const { width: w, height: h } = canvas;
+  const cs = new CompressionStream("deflate"); // "deflate" is zlib-wrapped, which is what FlateDecode expects
+  const out = new Response(cs.readable).arrayBuffer();
+  const writer = cs.writable.getWriter();
+  const band = Math.max(1, Math.floor(4_000_000 / w));
+  for (let y = 0; y < h; y += band) {
+    const rows = Math.min(band, h - y);
+    const rgba = ctx.getImageData(0, y, w, rows).data;
+    const rgb = new Uint8Array(w * rows * 3);
+    for (let i = 0, j = 0; i < rgba.length; i += 4, j += 3) { rgb[j] = rgba[i]; rgb[j + 1] = rgba[i + 1]; rgb[j + 2] = rgba[i + 2]; }
+    await writer.write(rgb);
+  }
+  await writer.close();
+  return new Uint8Array(await out);
+}
