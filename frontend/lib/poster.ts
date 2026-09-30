@@ -120,7 +120,11 @@ function labelFor(people: Person[], byId: Map<string, Person>, o: PosterOptions,
 }
 
 // ---------- Illustrated: a grown tree ----------
-interface GNode { id: string; members: string[]; depth: number; parent: GNode | null; kids: GNode[]; x: number; w: number; kw: number; cx: number; cy: number; wt?: number; bey?: string[] }
+// A person with several spouses becomes a fork (a knot on their branch) whose kids are one couple
+// node per marriage, on the same generation row; each couple carries that marriage's children.
+interface GNode { id: string; key: string; members: string[]; depth: number; parent: GNode | null; kids: GNode[]; x: number; w: number; kw: number; cx: number; cy: number; fork?: number; nth?: number; wt?: number; bey?: string[] }
+
+const ordinal = (n: number) => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th");
 
 function growthTree(people: Person[], byId: Map<string, Person>, o: PosterOptions): GNode | null {
   const anc = o.include === "anc", seen = new Set<string>();
@@ -129,14 +133,38 @@ function growthTree(people: Person[], byId: Map<string, Person>, o: PosterOption
   const kidsOf = new Map<string, string[]>(people.map((p) => [p.id, []]));
   for (const p of people) for (const pid of p.parentIds) kidsOf.get(pid)?.push(p.id);
   const born = (id: string) => yearOf(byId.get(id)?.birth?.date) ?? 9999;
+  const node = (id: string, key: string, members: string[], depth: number, parent: GNode | null): GNode => ({ id, key, members, depth, parent, kids: [], x: 0, w: 0, kw: 0, cx: 0, cy: 0 });
   function build(id: string, depth: number, parent: GNode | null): GNode {
     seen.add(id);
-    let members = [id];
-    if (!anc) { const sp = byId.get(id)!.spouseIds.filter((s) => byId.has(s) && !seen.has(s)); sp.forEach((s) => seen.add(s)); members = [id, ...sp]; }
-    const next = anc ? byId.get(id)!.parentIds.filter((q) => byId.has(q)) : [...(kidsOf.get(id) ?? [])].sort((a, b) => born(a) - born(b));
-    const g: GNode = { id, members, depth, parent, kids: [], x: 0, w: 0, kw: 0, cx: 0, cy: 0 };
-    next.forEach((k) => { if (!seen.has(k)) g.kids.push(build(k, depth + 1, g)); });
-    return g;
+    const p = byId.get(id)!;
+    if (anc) {
+      const g = node(id, id, [id], depth, parent);
+      p.parentIds.forEach((q) => { if (byId.has(q) && !seen.has(q)) g.kids.push(build(q, depth + 1, g)); });
+      return g;
+    }
+    const wed = (s: string) => yearOf(p.marriages.find((m) => m.spouseId === s)?.date) ?? Infinity;
+    const sp = p.spouseIds.filter((s) => byId.has(s) && !seen.has(s)).map((s, i) => ({ s, i })).sort((a, b) => wed(a.s) - wed(b.s) || a.i - b.i).map((x) => x.s);
+    sp.forEach((s) => seen.add(s));
+    const kids = [...(kidsOf.get(id) ?? [])].sort((a, b) => born(a) - born(b));
+    const add = (g: GNode, ks: string[]) => ks.forEach((k) => { if (!seen.has(k)) g.kids.push(build(k, depth + 1, g)); });
+    if (sp.length < 2) {
+      const g = node(id, id, [id, ...sp], depth, parent);
+      add(g, kids);
+      return g;
+    }
+    const fork = node(id, id + "^", [id], depth, parent);
+    fork.fork = sp.length;
+    const own = new Set<string>();
+    sp.forEach((s, i) => {
+      const c = node(id, id + "~" + s, [id, s], depth, fork);
+      c.nth = i + 1;
+      const ks = kids.filter((k) => byId.get(k)!.parentIds.includes(s));
+      ks.forEach((k) => own.add(k));
+      fork.kids.push(c);
+      add(c, ks);
+    });
+    add(fork, kids.filter((k) => !own.has(k))); // other parent unknown: grows straight from the knot
+    return fork;
   }
   return build(rootId, 0, null);
 }
@@ -149,7 +177,7 @@ function illusTree(people: Person[], byId: Map<string, Person>, o: PosterOptions
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   const grow = (x: number, y: number, pad = 0) => { minX = Math.min(minX, x - pad); maxX = Math.max(maxX, x + pad); minY = Math.min(minY, y - pad); maxY = Math.max(maxY, y + pad); };
   const walk = (g: GNode, fn: (g: GNode) => void) => { fn(g); g.kids.forEach((k) => walk(k, fn)); };
-  const rad = (g: GNode) => (g.members.length > 1 ? R2 : R1);
+  const rad = (g: GNode) => (g.fork ? 7 : g.members.length > 1 ? R2 : R1);
   const P = (id: string) => byId.get(id)!;
 
   // layout: tidy tree of units, one line per generation, row height fitted to the page
@@ -165,13 +193,13 @@ function illusTree(people: Person[], byId: Map<string, Person>, o: PosterOptions
   const rowH = clamp((root.w / areaAspect - SLOT * 1.6) / (maxDepth + 0.95), 150, 330);
   place(root, 0);
   const spread = new Array(maxDepth + 1).fill(0);
-  walk(root, (g) => g.kids.forEach((k) => { spread[g.depth] = Math.max(spread[g.depth], Math.abs(k.x - g.x)); }));
+  walk(root, (g) => g.kids.forEach((k) => { if (k.depth > g.depth) spread[g.depth] = Math.max(spread[g.depth], Math.abs(k.x - g.x)); }));
   const rowY = [0];
   for (let d = 0; d < maxDepth; d++) rowY.push(rowY[d] - clamp(spread[d] * 0.5, rowH, rowH * 1.9));
-  walk(root, (g) => { g.cx = g.x; g.cy = rowY[g.depth]; });
+  walk(root, (g) => { g.cx = g.x; g.cy = rowY[g.depth] + (g.fork ? rowH * 0.46 : 0); }); // a knot sits below its couples
 
-  const weight = (g: GNode): number => (g.wt ??= g.members.length + g.kids.reduce((a, k) => a + weight(k), 0));
-  const beyond = (g: GNode): string[] => (g.bey ??= [...g.members, ...g.kids.flatMap(beyond)]);
+  const weight = (g: GNode): number => (g.wt ??= g.members.length - (g.nth ? 1 : 0) + g.kids.reduce((a, k) => a + weight(k), 0));
+  const beyond = (g: GNode): string[] => (g.bey ??= [...new Set([...g.members, ...g.kids.flatMap(beyond)])]);
   const wid = (wt: number) => 2.6 + 4.1 * Math.sqrt(wt);
 
   function taper(p: Pt[], w0: number, w1: number, N = 26) {
@@ -215,8 +243,8 @@ function illusTree(people: Person[], byId: Map<string, Person>, o: PosterOptions
     let shade = "", body = "", light = "", edge = "";
     const circ = (x: number, y: number, r: number) => { grow(x, y, r); return `<circle cx="${f1(x)}" cy="${f1(y)}" r="${f1(r)}"/>`; };
     walk(root, (g) => {
-      if (onTrunk.has(g)) return;
-      const rnd = rng("puff" + g.id), r = SLOT * (0.7 + rnd() * 0.08), jx = (rnd() - 0.5) * 12;
+      if (onTrunk.has(g) || g.fork) return;
+      const rnd = rng("puff" + g.key), r = SLOT * (0.7 + rnd() * 0.08), jx = (rnd() - 0.5) * 12;
       shade += circ(g.cx + jx, g.cy + 12, r * 0.98) + circ(g.cx - SLOT * 0.38, g.cy + SLOT * 0.2, r * 0.7) + circ(g.cx + SLOT * 0.38, g.cy + SLOT * 0.2, r * 0.7);
       body += circ(g.cx + jx, g.cy - 6, r) + circ(g.cx - SLOT * 0.4, g.cy + SLOT * 0.08, r * 0.72) + circ(g.cx + SLOT * 0.4, g.cy + SLOT * 0.06, r * 0.72);
       light += circ(g.cx - r * 0.3 + jx, g.cy - r * 0.42, r * 0.46);
@@ -228,8 +256,8 @@ function illusTree(people: Person[], byId: Map<string, Person>, o: PosterOptions
 
   // trunk, roots and ground
   {
-    const rnd = rng("trunk" + root.id), wt = wid(weight(root)) * 1.05, wb = wt * 1.9;
-    const gy = R1 + rowH * 0.62, x = root.cx;
+    const rnd = rng("trunk" + root.key), wt = wid(weight(root)) * 1.05, wb = wt * 1.9;
+    const gy = root.cy + R1 + rowH * 0.62, x = root.cx;
     const p = [{ x: x + (rnd() - 0.5) * 6, y: gy }, { x: x + 10, y: gy - rowH * 0.25 }, { x: x - 8, y: root.cy + rowH * 0.25 }, { x, y: root.cy }];
     let t = `<path d="${taper(p, wb, wt)}" fill="${wood}"/>` + bark(p, wb, wt);
     [-1, 1, -1, 1].forEach((side, i) => {
@@ -276,7 +304,7 @@ function illusTree(people: Person[], byId: Map<string, Person>, o: PosterOptions
   function branch(from: Pt, list: GNode[], d: number, key: string, tIn: Pt) {
     if (list.length === 1) {
       const k = list[0], w = wid(weight(k)), dx = k.cx - from.x, dy = from.y - k.cy;
-      seg(from, { x: k.cx, y: k.cy }, w * 1.1, Math.max(2.6, w * 0.62), d, beyond(k), key + ">" + k.id, tIn, unit({ x: dx * 0.25 / Math.max(dy, 1), y: -1 }));
+      seg(from, { x: k.cx, y: k.cy }, w * 1.1, Math.max(2.6, w * 0.62), d, beyond(k), key + ">" + k.key, tIn, unit({ x: dx * 0.25 / Math.max(dy, 1), y: -1 }));
       return;
     }
     const sorted = [...list].sort((a, b) => a.cx - b.cx), half = Math.ceil(sorted.length / 2);
@@ -293,16 +321,31 @@ function illusTree(people: Person[], byId: Map<string, Person>, o: PosterOptions
       branch(fork, grp, d + 0.4, key + "/" + gi, tFork);
     });
   }
-  walk(root, (g) => { if (g.kids.length) branch({ x: g.cx, y: g.cy }, g.kids, g.depth + 1, g.id, { x: 0, y: -1 }); });
+  walk(root, (g) => {
+    if (!g.kids.length) return;
+    const from = { x: g.cx, y: g.cy };
+    // a knot fans every marriage out from one point, so they read as the same person
+    if (g.fork) g.kids.forEach((k) => branch(from, [k], g.depth + 0.6, g.key, unit({ x: (k.cx - from.x) / Math.max(from.y - k.cy, 1) * 0.9, y: -1 })));
+    else branch(from, g.kids, g.depth + 1, g.key, { x: 0, y: -1 });
+  });
 
   // medallions
   const order: GNode[] = []; walk(root, (g) => order.push(g));
   order.sort((a, b) => b.cy - a.cy).forEach((g) => {
+    if (g.fork) {
+      const side = g.parent && g.parent.cx > g.cx ? -1 : 1, lx = g.cx + side * 40, ly = g.cy + 36;
+      const note = `${getFullName(P(g.id))} · ${g.fork} marriages`;
+      meds += `<g data-knot="${esc(g.id)}"><circle cx="${f1(g.cx)}" cy="${f1(g.cy)}" r="7" fill="${barkDark}"/>` +
+        `<path d="M${f1(g.cx + side * 7)} ${f1(g.cy + 5)}L${f1(lx - side * 4)} ${f1(ly - 4)}" stroke="${c.ink3}" stroke-width=".8"/>` +
+        `<text x="${f1(lx)}" y="${f1(ly + 4)}" text-anchor="${side > 0 ? "start" : "end"}" class="mono" font-size="10" fill="${c.ink2}">${esc(note)}</text></g>`;
+      grow(g.cx, g.cy, 8); grow(lx + side * Array.from(note).length * 6.2, ly + 8);
+      return;
+    }
     const R = rad(g), p = P(g.id), sp = g.members.slice(1).map(P);
     const isAnchor = lab && !!o.anchor && g.members.includes(o.anchor);
     const n1 = getFullName(p), n2 = sp.length ? "& " + getFullName(sp[0]) + (sp.length > 1 ? ` +${sp.length - 1}` : "") : "";
     const fit = (s: string, base: number, room: number) => Math.min(base, base * room / Math.max(room, Array.from(s).length));
-    const yrs = yearsLabel(p), deceased = !!p.death;
+    const yrs = g.nth ? ordinal(g.nth) + " m." : yearsLabel(p), deceased = !!p.death;
     let txt = "";
     if (n2) {
       txt += `<text y="-7" text-anchor="middle" class="ser" font-size="${fit(n1, 13.5, 11).toFixed(1)}" font-weight="500" fill="${deceased ? c.ink2 : c.ink}">${esc(truncate(n1, 18))}</text>`;
@@ -331,8 +374,8 @@ function illusTree(people: Person[], byId: Map<string, Person>, o: PosterOptions
     grow(g.cx, g.cy, R + 4);
   });
 
-  const peopleIds: string[] = []; walk(root, (g) => peopleIds.push(...g.members));
-  return { svg: canopy + ground + woodSVG + leafSVG + meds, bounds: { minX, minY, maxX, maxY }, people: peopleIds, gens: maxDepth + 1 };
+  const peopleIds = new Set<string>(); walk(root, (g) => g.members.forEach((id) => peopleIds.add(id)));
+  return { svg: canopy + ground + woodSVG + leafSVG + meds, bounds: { minX, minY, maxX, maxY }, people: [...peopleIds], gens: maxDepth + 1 };
 }
 
 // ---------- Register: cards with orthogonal lines ----------

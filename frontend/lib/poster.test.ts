@@ -30,6 +30,28 @@ describe("buildPosterSVG", () => {
     expect(ys("ashwin")).toBe(ys("vishal"));
     expect(ys("kamala")).toBe(ys("sundar"));
   });
+  it("illustrated gives each marriage its own medallion, forked from one knot", () => {
+    const twice = normalize(
+      ([
+        ["sdds", [], ["asd", "awdaad"]], ["asd", []], ["awdaad", []],
+        ["son", ["sdds", "asd"]], ["girl", ["sdds", "awdaad"]], ["lone", ["sdds"]],
+      ] as [string, string[], string[]?][]).map(([id, parentIds, spouseIds = []]) => ({ ...createEmptyPerson(id), name: id, parentIds, spouseIds }))
+    ).people.map((p) => (p.id === "sdds" ? { ...p, marriages: [{ spouseId: "awdaad", date: "1990", place: "", divorced: false, divorceDate: "", divorcePlace: "" }, { spouseId: "asd", date: "1995", place: "", divorced: false, divorceDate: "", divorcePlace: "" }] } : p));
+    const svg = buildPosterSVG(twice, { ...base, style: "illus" }, "", { interactive: true });
+    expect(count(svg, /class="pcard"/g)).toBe(5); // two couples + three children
+    expect(count(svg, /data-knot="sdds"/g)).toBe(1);
+    expect(svg).toContain("sdds · 2 marriages");
+    expect(svg).toMatch(/&amp; awdaad<\/text>.*1st m\./s); // ordered by wedding date
+    expect(svg).toContain("6 PEOPLE");
+    const at = (id: string) => svg.match(new RegExp(`data-id="${id}"[^>]*transform="translate\\(([\\d.-]+) ([\\d.-]+)\\)`))!.slice(1).map(Number);
+    const couples = [...svg.matchAll(/data-id="sdds"[^>]*transform="translate\(([\d.-]+) ([\d.-]+)\)/g)].map((m) => [Number(m[1]), Number(m[2])]);
+    expect(couples).toHaveLength(2);
+    expect(couples[0][1]).toBe(couples[1][1]);
+    // each child grows above its own couple; the child of an unknown other parent sits between them
+    const [first, second] = [...couples].sort((a, b) => a[0] - b[0]);
+    expect(Math.abs(at("girl")[0] - first[0])).toBeLessThan(Math.abs(at("girl")[0] - second[0]));
+    expect(Math.abs(at("son")[0] - second[0])).toBeLessThan(Math.abs(at("son")[0] - first[0]));
+  });
   it("labels relations from the chosen person, in Tamil", () => {
     const svg = buildPosterSVG(fam, { ...base, labels: "tamil", anchor: "vishal" });
     expect(svg).toContain("Relations as seen by Vishal");
