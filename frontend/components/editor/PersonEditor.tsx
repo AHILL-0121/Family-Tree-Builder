@@ -17,6 +17,7 @@ interface PersonEditorProps {
   people: Person[];
   onSave: (p: Person) => void;
   onCancel: () => void;
+  onDelete: (id: string) => void;
 }
 
 const blankMarriage = (): Marriage => ({ spouseId: "", date: "", place: "", divorced: false, divorceDate: "", divorcePlace: "" });
@@ -32,7 +33,7 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-export function PersonEditor({ person: p, people, onSave, onCancel }: PersonEditorProps) {
+export function PersonEditor({ person: p, people, onSave, onCancel, onDelete }: PersonEditorProps) {
   const [given, setGiven] = useState(p.givenName || (!p.surname ? p.name : ""));
   const [surname, setSurname] = useState(p.surname);
   const [gender, setGender] = useState<Person["gender"]>(p.gender);
@@ -271,6 +272,7 @@ export function PersonEditor({ person: p, people, onSave, onCancel }: PersonEdit
       <footer className="sticky bottom-0 flex items-center gap-2 border-t border-rule bg-surface px-5 py-3">
         <button type="submit" className={`${btnPrimary} flex-1`}>Save changes</button>
         <button type="button" className={btnGhost} onClick={onCancel}>Cancel</button>
+        <button type="button" className={`${btnPlain} text-brand`} onClick={() => onDelete(p.id)} aria-label={`Delete ${getFullName(p)}`}>Delete</button>
         <kbd className="font-mono text-[10.5px] text-ink-3 max-sm:hidden" title="Save with Ctrl+Enter">Ctrl ⏎</kbd>
       </footer>
 

@@ -122,7 +122,9 @@ export function EditorApp() {
     setPending(null);
     setEditingId(null);
     setSelectedId(id);
-  }, []);
+    // Picking someone brings the details panel back, even if it was hidden
+    if (id) setShowDetails("1");
+  }, [setShowDetails]);
 
   const setMode = useCallback((m: CanvasMode) => {
     setPending(null);

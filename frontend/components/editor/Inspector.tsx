@@ -72,7 +72,7 @@ export function Inspector(props: InspectorProps) {
   if (state.kind === "new") return <NewPersonForm key={state.draft.id} {...props} state={state} byId={byId} />;
   if (state.kind === "edit" && byId.has(state.id)) {
     const p = byId.get(state.id)!;
-    return <PersonEditor key={p.id} person={p} people={people} onSave={props.onSaveEdit} onCancel={props.onCancel} />;
+    return <PersonEditor key={p.id} person={p} people={people} onSave={props.onSaveEdit} onCancel={props.onCancel} onDelete={props.onDelete} />;
   }
   if (state.kind === "person" && byId.has(state.id)) return <PersonView {...props} person={byId.get(state.id)!} byId={byId} />;
   return <Overview {...props} />;
